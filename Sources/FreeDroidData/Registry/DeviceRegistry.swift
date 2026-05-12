@@ -110,20 +110,14 @@ public actor DeviceRegistry {
             mtpDevices: mtpDevices,
             into: &newRecords
         )
-        await addMTPRecords(
+        let mtpVendorProducts = await addMTPRecords(
             mtpDevices: mtpDevices,
             adbSerials: authorizedSerials,
             usbSnapshot: usbSnapshot,
             into: &newRecords
         )
         addUnauthorizedADBRecords(adbDevices: adbDevices, into: &newRecords)
-        let coveredVendorProducts = Set(
-            newRecords.values.compactMap { record -> USBVendorProduct? in
-                guard record.device.transport == .mtp else { return nil }
-                return usbSnapshot.first { $0.serialNumber == record.device.id.raw }
-                    .map { USBVendorProduct(vendorID: $0.vendorID, productID: $0.productID) }
-            }
-        ).union(knownADBDescriptors)
+        let coveredVendorProducts = mtpVendorProducts.union(knownADBDescriptors)
         addChargingOnlyRecords(coveredSerials: Set(newRecords.keys.map(\.raw)),
                                authorizedSerials: authorizedSerials,
                                coveredVendorProducts: coveredVendorProducts,
@@ -220,9 +214,10 @@ public actor DeviceRegistry {
         adbSerials: Set<String>,
         usbSnapshot: [USBDeviceDescriptor],
         into newRecords: inout [DeviceID: DeviceRecord]
-    ) async {
+    ) async -> Set<USBVendorProduct> {
         var skipped = 0
         var emitted = 0
+        var emittedVendorProducts: Set<USBVendorProduct> = []
         for rawDevice in mtpDevices {
             let deviceID = DeviceID(raw: rawDevice.identifier)
             if newRecords[deviceID] != nil { continue }
@@ -258,9 +253,11 @@ public actor DeviceRegistry {
                 connectionState: .ready
             )
             newRecords[deviceID] = DeviceRecord(device: deviceRecord, transport: session)
+            emittedVendorProducts.insert(candidateVP)
             emitted += 1
         }
         registryLogger.debug("MTP scan: \(mtpDevices.count) discovered, \(skipped) owned by ADB, \(emitted) emitted")
+        return emittedVendorProducts
     }
 
     private func addUnauthorizedADBRecords(
