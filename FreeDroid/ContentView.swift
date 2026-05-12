@@ -3,10 +3,14 @@ import FreeDroidUI
 import FreeDroidDomain
 import DeviceManagement
 import FileBrowser
+import Gallery
 
 struct ContentView: View {
     @Environment(AppContainer.self) private var container
     @State private var theme: Theme = .dark
+    @State private var tab: DetailTab = .files
+
+    enum DetailTab: Hashable { case files, gallery }
 
     var body: some View {
         ZStack {
@@ -25,8 +29,27 @@ struct ContentView: View {
     @ViewBuilder
     private var detail: some View {
         if let selectedID = container.deviceListViewModel.selectedID {
-            FileBrowserView(viewModel: container.fileBrowserViewModel(for: selectedID))
-                .id(selectedID)
+            VStack(spacing: 0) {
+                PillTabs(
+                    selection: $tab,
+                    tabs: [("Files", DetailTab.files), ("Gallery", DetailTab.gallery)]
+                )
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.md)
+                Divider().overlay(theme.colors.line)
+                SidebarFlow(selection: tab) { selectedTab in
+                    switch selectedTab {
+                    case .files:
+                        FileBrowserView(viewModel: container.fileBrowserViewModel(for: selectedID))
+                    case .gallery:
+                        GalleryView(
+                            viewModel: container.galleryViewModel(for: selectedID),
+                            onCopySelectionToMac: { _ in }
+                        )
+                    }
+                }
+            }
+            .id(selectedID)
         } else {
             placeholderDetail
         }

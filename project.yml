@@ -31,6 +31,8 @@ packages:
     path: Packages/Features/DeviceManagement
   FileBrowser:
     path: Packages/Features/FileBrowser
+  Gallery:
+    path: Packages/Features/Gallery
 
 targets:
   FreeDroid:
@@ -67,3 +69,5 @@ targets:
         product: DeviceManagement
       - package: FileBrowser
         product: FileBrowser
+      - package: Gallery
+        product: Gallery

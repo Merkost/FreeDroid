@@ -6,6 +6,7 @@ import FreeDroidADB
 import FreeDroidMTP
 import DeviceManagement
 import FileBrowser
+import Gallery
 
 @MainActor
 @Observable
@@ -51,6 +52,21 @@ final class AppContainer {
             renameFile: RenameFileUseCase(fileRepository: fileRepo),
             deleteFiles: DeleteFilesUseCase(fileRepository: fileRepo),
             createFolder: CreateFolderUseCase(fileRepository: fileRepo)
+        )
+    }
+
+    func galleryViewModel(for deviceID: DeviceID) -> GalleryViewModel {
+        let fileRepo = FileRepositoryImpl(registry: registry, cache: listingCache, deviceID: deviceID)
+        let mediaRepo = MediaRepositoryImpl(
+            registry: registry,
+            fileRepo: fileRepo,
+            thumbnails: thumbnailCache,
+            deviceID: deviceID
+        )
+        return GalleryViewModel(
+            folder: RemotePath(raw: "/sdcard/DCIM/Camera"),
+            loadMedia: LoadMediaUseCase(mediaRepository: mediaRepo),
+            loadThumbnail: LoadThumbnailUseCase(mediaRepository: mediaRepo)
         )
     }
 
