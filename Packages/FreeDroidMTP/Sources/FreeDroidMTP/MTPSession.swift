@@ -252,20 +252,20 @@ public actor MTPSession: Transport {
         var collected: [MTPObject] = []
         var cursor = head
         while let node = cursor {
-            let f = node.pointee
-            let name = f.filename.map { String(cString: $0) } ?? ""
+            let fileEntry = node.pointee
+            let name = fileEntry.filename.map { String(cString: $0) } ?? ""
             collected.append(MTPObject(
-                storageID: f.storage_id,
-                objectHandle: f.item_id,
-                parentHandle: f.parent_id,
+                storageID: fileEntry.storage_id,
+                objectHandle: fileEntry.item_id,
+                parentHandle: fileEntry.parent_id,
                 name: name,
-                isFolder: f.filetype == LIBMTP_FILETYPE_FOLDER,
-                size: Int64(f.filesize),
-                modifiedAt: f.modificationdate > 0
-                    ? Date(timeIntervalSince1970: TimeInterval(f.modificationdate))
+                isFolder: fileEntry.filetype == LIBMTP_FILETYPE_FOLDER,
+                size: Int64(fileEntry.filesize),
+                modifiedAt: fileEntry.modificationdate > 0
+                    ? Date(timeIntervalSince1970: TimeInterval(fileEntry.modificationdate))
                     : nil
             ))
-            cursor = f.next
+            cursor = fileEntry.next
         }
         resolver = MTPPathResolver(objects: collected)
     }

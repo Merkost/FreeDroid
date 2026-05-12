@@ -29,8 +29,8 @@ public actor MTPDeviceDiscovery {
         guard let ptr = rawPtr, count > 0 else { return [] }
 
         var devices: [MTPRawDevice] = []
-        for i in 0..<Int(count) {
-            let raw = ptr.advanced(by: i).pointee
+        for idx in 0..<Int(count) {
+            let raw = ptr.advanced(by: idx).pointee
             let vendorName = raw.device_entry.vendor.map { String(cString: $0) }
             let productName = raw.device_entry.product.map { String(cString: $0) }
             devices.append(MTPRawDevice(

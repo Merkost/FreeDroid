@@ -13,7 +13,7 @@ public enum MTPSessionError: Hashable, Sendable, Error {
         case .noDevicesFound: .notConnected
         case .openFailed(let msg): .ioFailure(message: "open: \(msg)")
         case .operationFailed(let msg): .ioFailure(message: msg)
-        case .unsupportedFeature(let s): .unsupported(reason: s)
+        case .unsupportedFeature(let reason): .unsupported(reason: reason)
         }
     }
 }
