@@ -72,6 +72,29 @@ struct SyncProtocolDecodeTests {
         }
     }
 
+    @Test func decodesDnt2Frame() throws {
+        var buf = Data()
+        buf.appendU32LE(0)
+        appendU64LE(into: &buf, 0xAB)
+        appendU64LE(into: &buf, 0xCD)
+        buf.appendU32LE(0o100644)
+        buf.appendU32LE(1)
+        buf.appendU32LE(1000)
+        buf.appendU32LE(1015)
+        appendU64LE(into: &buf, 1234)
+        appendI64LE(into: &buf, 1700000000)
+        appendI64LE(into: &buf, 1700000050)
+        appendI64LE(into: &buf, 1700000020)
+        let nameBytes = Data("photo.jpg".utf8)
+        buf.appendU32LE(UInt32(nameBytes.count))
+
+        #expect(buf.count == SyncV2Dent.bodyAfterId)
+        #expect(buf.readU32LE(at: 20) == 0o100644)
+        #expect(buf.readU64LE(at: 36) == 1234)
+        #expect(buf.readI64LE(at: 52) == 1700000050)
+        #expect(buf.readU32LE(at: 68) == UInt32(nameBytes.count))
+    }
+
     @Test func decodesSta1Frame() throws {
         var buf = Data()
         buf.append(contentsOf: "STAT".utf8)

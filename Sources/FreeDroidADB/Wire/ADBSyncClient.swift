@@ -51,20 +51,22 @@ public actor ADBSyncClient {
 
         var entries: [SyncEntry] = []
         while true {
+            try Task.checkCancellation()
             let id = try await connection.readBytes(4)
             let idStr = String(decoding: id, as: UTF8.self)
-            let length = try await connection.readU32LE()
             switch idStr {
+            case "DONE":
+                _ = try await connection.readU32LE()
+                return entries
+            case "FAIL":
+                let length = try await connection.readU32LE()
+                let msg = try await connection.readString(Int(length))
+                throw ADBWireError.syncFailed(msg)
             case "DNT2":
-                let entry = try await readDnt2Entry(length: Int(length))
+                let entry = try await readDnt2Entry()
                 if entry.name != "." && entry.name != ".." {
                     entries.append(entry)
                 }
-            case "DONE":
-                return entries
-            case "FAIL":
-                let msg = try await connection.readString(Int(length))
-                throw ADBWireError.syncFailed(msg)
             default:
                 throw ADBWireError.framingViolation(
                     context: "listV2 unexpected id '\(idStr)'",
@@ -74,54 +76,33 @@ public actor ADBSyncClient {
         }
     }
 
-    private func readDnt2Entry(length: Int) async throws -> SyncEntry {
-        let payload = try await connection.readBytes(length)
-        guard payload.count >= 36 else {
+    private func readDnt2Entry() async throws -> SyncEntry {
+        let header = try await connection.readBytes(SyncV2Dent.bodyAfterId)
+        guard header.count == SyncV2Dent.bodyAfterId else {
             throw ADBWireError.framingViolation(
-                context: "DNT2 payload < 36 bytes (got \(payload.count))",
-                firstBytes: Array(payload.prefix(16))
+                context: "DNT2 header read short (got \(header.count))",
+                firstBytes: Array(header.prefix(16))
             )
         }
-        let mode = payload.readU32LE(at: 0)
-        let size64 = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 16 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 8, as: UInt64.self).littleEndian
-        }
-        let uid = payload.readU32LE(at: 16)
-        let gid = payload.readU32LE(at: 20)
-        let atime = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 32 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 24, as: UInt64.self).littleEndian
-        }
-        let mtime = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 40 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 32, as: UInt64.self).littleEndian
-        }
-        let ctime = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 48 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 40, as: UInt64.self).littleEndian
-        }
-        let nameLen = payload.withUnsafeBytes { ptr -> UInt32 in
-            guard ptr.count >= 52 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 48, as: UInt32.self).littleEndian
-        }
-        let nameStart = 52
-        guard payload.count >= nameStart + Int(nameLen) else {
-            throw ADBWireError.framingViolation(
-                context: "DNT2 name truncated (need \(nameStart + Int(nameLen)), have \(payload.count))",
-                firstBytes: Array(payload.prefix(16))
-            )
-        }
-        let name = String(decoding: payload[nameStart..<nameStart + Int(nameLen)], as: UTF8.self)
+        let mode = header.readU32LE(at: 20)
+        let uid = header.readU32LE(at: 28)
+        let gid = header.readU32LE(at: 32)
+        let size = header.readU64LE(at: 36)
+        let atime = header.readI64LE(at: 44)
+        let mtime = header.readI64LE(at: 52)
+        let ctime = header.readI64LE(at: 60)
+        let nameLen = header.readU32LE(at: 68)
+        let nameBytes = try await connection.readBytes(Int(nameLen))
+        let name = String(decoding: nameBytes, as: UTF8.self)
         return SyncEntry(
             name: name,
             mode: mode,
-            size: size64,
+            size: size,
             uid: uid,
             gid: gid,
-            atime: atime,
-            mtime: mtime,
-            ctime: ctime
+            atime: UInt64(bitPattern: atime),
+            mtime: UInt64(bitPattern: mtime),
+            ctime: UInt64(bitPattern: ctime)
         )
     }
 

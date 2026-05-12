@@ -85,17 +85,21 @@ struct Dnt2Entry: Sendable {
 
 func encodeDnt2Entry(_ entry: Dnt2Entry) -> Data {
     var data = Data()
-    data.appendU32LE(entry.mode)
+    data.append(contentsOf: "DNT2".utf8)
     data.appendU32LE(0)
-    var s = entry.size.littleEndian
-    Swift.withUnsafeBytes(of: &s) { data.append(contentsOf: $0) }
+    data.append(contentsOf: [UInt8](repeating: 0, count: 8))
+    data.append(contentsOf: [UInt8](repeating: 0, count: 8))
+    data.appendU32LE(entry.mode)
+    data.appendU32LE(1)
     data.appendU32LE(1000)
     data.appendU32LE(2000)
-    var atime: UInt64 = 0
+    var size = entry.size.littleEndian
+    Swift.withUnsafeBytes(of: &size) { data.append(contentsOf: $0) }
+    var atime: Int64 = 0
     Swift.withUnsafeBytes(of: &atime) { data.append(contentsOf: $0) }
-    var mtime: UInt64 = 1_700_000_000
+    var mtime: Int64 = 1_700_000_000
     Swift.withUnsafeBytes(of: &mtime) { data.append(contentsOf: $0) }
-    var ctime: UInt64 = 1_700_000_000
+    var ctime: Int64 = 1_700_000_000
     Swift.withUnsafeBytes(of: &ctime) { data.append(contentsOf: $0) }
     let nameData = Data(entry.name.utf8)
     data.appendU32LE(UInt32(nameData.count))
@@ -110,12 +114,7 @@ func handleListV2RequestFD(fd: Int32, entries: [Dnt2Entry]) throws {
     _ = try readExact(fd: fd, count: Int(pathLen))
 
     for entry in entries {
-        let payload = encodeDnt2Entry(entry)
-        var packet = Data()
-        packet.append(contentsOf: "DNT2".utf8)
-        packet.appendU32LE(UInt32(payload.count))
-        packet.append(payload)
-        try writeAll(fd: fd, data: packet)
+        try writeAll(fd: fd, data: encodeDnt2Entry(entry))
     }
 
     var done = Data()
