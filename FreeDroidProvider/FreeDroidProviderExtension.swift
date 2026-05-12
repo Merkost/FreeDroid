@@ -210,12 +210,28 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
     func deleteItem(
         identifier: NSFileProviderItemIdentifier,
         baseVersion version: NSFileProviderItemVersion,
-        options: NSFileProviderDeleteItemOptions,
+        options: NSFileProviderDeleteItemOptions = [],
         request: NSFileProviderRequest,
-        completionHandler: @escaping ((any Error)?) -> Void
+        completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
-        completionHandler(NSFileProviderError(.noSuchItem) as NSError)
-        return Progress()
+        nonisolated(unsafe) let handler = completionHandler
+        nonisolated(unsafe) let progress = Progress(totalUnitCount: 1)
+        let identifierRaw = identifier.rawValue
+        Task {
+            do {
+                guard let path = ItemIdentifier.decode(identifierRaw) else {
+                    throw NSFileProviderError(.noSuchItem)
+                }
+                _ = try await bridge.send(.remove(deviceID: deviceID, path: path), expecting: Data.self)
+                progress.completedUnitCount = 1
+                handler(nil)
+            } catch let error as TransportError {
+                handler(ProviderError.map(error))
+            } catch {
+                handler(error)
+            }
+        }
+        return progress
     }
 
     private func resolveItem(for identifier: NSFileProviderItemIdentifier) async throws -> NSFileProviderItem {
