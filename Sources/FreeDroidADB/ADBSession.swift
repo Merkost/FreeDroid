@@ -16,6 +16,7 @@ public actor ADBSession: Transport {
     private let wirePort: UInt16
     private var cachedInfo: DeviceInfo?
     private var cachedZstd: Bool?
+    private var inFlightStats: [String: Task<RemoteEntry, Error>] = [:]
 
     private static var wireEnabled: Bool {
         let suite = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
@@ -125,10 +126,16 @@ public actor ADBSession: Transport {
     }
 
     public func stat(_ path: RemotePath) async throws -> RemoteEntry {
-        if Self.wireEnabled {
-            return try await wireStat(path)
+        let key = path.raw
+        if let existing = inFlightStats[key] {
+            return try await existing.value
         }
-        return try await legacyStat(path)
+        let task = Task { [self] in
+            try await Self.wireEnabled ? wireStat(path) : legacyStat(path)
+        }
+        inFlightStats[key] = task
+        defer { inFlightStats[key] = nil }
+        return try await task.value
     }
 
     private func wireStat(_ path: RemotePath) async throws -> RemoteEntry {
@@ -148,6 +155,41 @@ public actor ADBSession: Transport {
     }
 
     private func legacyStat(_ path: RemotePath) async throws -> RemoteEntry {
+        let runner = await server.runner(for: serial)
+        let script = "stat -c '%F|%s|%Y' \(escape(path.raw))"
+        let out: ADBProcessOutput
+        do {
+            out = try await runner.run(.shell(serial: serial, script: script), timeout: .seconds(5))
+        } catch let ADBRunnerError.nonZeroExit(_, stderr) where Self.isInaccessible(stderr) {
+            throw TransportError.notFound(path)
+        }
+        let trimmed = out.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = trimmed.split(separator: "|", omittingEmptySubsequences: false)
+        guard parts.count >= 3 else {
+            return try await legacyStatViaList(path)
+        }
+        let typeRaw = parts[0].trimmingCharacters(in: .whitespaces).lowercased()
+        let size = Int64(parts[1].trimmingCharacters(in: .whitespaces)) ?? 0
+        let mtimeUnix = TimeInterval(parts[2].trimmingCharacters(in: .whitespaces)) ?? 0
+        let kind: EntryKind
+        if typeRaw.contains("directory") {
+            kind = .directory
+        } else if typeRaw.contains("symbolic") {
+            kind = .symlink
+        } else {
+            kind = .file
+        }
+        return RemoteEntry(
+            path: path,
+            name: path.name,
+            kind: kind,
+            sizeBytes: kind == .directory ? nil : size,
+            modifiedAt: Date(timeIntervalSince1970: mtimeUnix),
+            isHidden: path.name.hasPrefix(".")
+        )
+    }
+
+    private func legacyStatViaList(_ path: RemotePath) async throws -> RemoteEntry {
         let parent = path.parent ?? .root
         let entries = try await legacyList(parent)
         guard let match = entries.first(where: { $0.name == path.name }) else {
