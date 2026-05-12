@@ -16,6 +16,7 @@ public actor ADBSession: Transport {
     private let wirePort: UInt16
     private var cachedInfo: DeviceInfo?
     private var cachedZstd: Bool?
+    private var cachedDeviceFeatures: Set<String>?
     private var inFlightStats: [String: Task<RemoteEntry, Error>] = [:]
 
     private static var wireEnabled: Bool {
@@ -72,9 +73,15 @@ public actor ADBSession: Transport {
     }
 
     private func wireList(_ path: RemotePath) async throws -> [RemoteEntry] {
+        let feats = await deviceFeatures()
         let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
         defer { syncClient.close() }
-        let entries = try await syncClient.listV2(remotePath: path.raw)
+        let entries: [SyncEntry]
+        if feats.contains("ls_v2") {
+            entries = try await syncClient.listV2(remotePath: path.raw)
+        } else {
+            entries = try await syncClient.listV1(remotePath: path.raw)
+        }
         return entries.map { entry in
             let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
             let modifiedAt = Date(timeIntervalSince1970: TimeInterval(entry.mtime))
@@ -87,6 +94,15 @@ public actor ADBSession: Transport {
                 isHidden: entry.name.hasPrefix(".")
             )
         }
+    }
+
+    private func deviceFeatures() async -> Set<String> {
+        if let cached = cachedDeviceFeatures { return cached }
+        let host = ADBHostClient(host: wireHost, port: wirePort)
+        let list = (try? await host.features(serial: serial)) ?? []
+        let set = Set(list)
+        cachedDeviceFeatures = set
+        return set
     }
 
     private func legacyList(_ path: RemotePath) async throws -> [RemoteEntry] {
@@ -139,9 +155,15 @@ public actor ADBSession: Transport {
     }
 
     private func wireStat(_ path: RemotePath) async throws -> RemoteEntry {
+        let feats = await deviceFeatures()
         let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
         defer { syncClient.close() }
-        let entry = try await syncClient.statV2(remotePath: path.raw)
+        let entry: SyncEntry
+        if feats.contains("stat_v2") {
+            entry = try await syncClient.statV2(remotePath: path.raw)
+        } else {
+            entry = try await syncClient.statV1(remotePath: path.raw)
+        }
         let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
         let modifiedAt = Date(timeIntervalSince1970: TimeInterval(entry.mtime))
         return RemoteEntry(
@@ -356,6 +378,7 @@ public actor ADBSession: Transport {
     public func close() async {
         cachedInfo = nil
         cachedZstd = nil
+        cachedDeviceFeatures = nil
     }
 
     private func escape(_ path: String) -> String {
