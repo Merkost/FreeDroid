@@ -22,7 +22,7 @@ let package = Package(
         ),
         .testTarget(
             name: "DeviceManagementTests",
-            dependencies: ["DeviceManagement"],
+            dependencies: ["DeviceManagement", "FreeDroidDomain", "FreeDroidUI"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
                 .enableUpcomingFeature("StrictConcurrency")

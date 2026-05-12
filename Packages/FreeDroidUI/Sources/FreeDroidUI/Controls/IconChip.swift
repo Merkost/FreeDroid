@@ -1,6 +1,6 @@
 import SwiftUI
 
-public enum IconChipKind: Sendable {
+public enum IconChipKind: Sendable, Equatable {
     case adb, mtp, wifi, off, custom(Color)
 }
 
