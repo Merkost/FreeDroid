@@ -3,8 +3,13 @@
 ## Build setup
 
 1. Install Xcode 16.3 or newer.
-2. Install SwiftLint: `brew install swiftlint`.
-3. `open FreeDroid.xcworkspace` and build.
+2. Install SwiftLint and XcodeGen: `brew install swiftlint xcodegen`.
+3. Generate the Xcode project: `Scripts/generate-project.sh`.
+4. `open FreeDroid.xcworkspace` and build.
+
+## Regenerating the Xcode project
+
+Always use `Scripts/generate-project.sh`, not `xcodegen` directly. The wrapper runs XcodeGen and then patches the resulting `project.pbxproj` to add `package =` references on every local Swift Package product — Xcode 26's UI requires this field, but XcodeGen 2.45 does not emit it.
 
 ## Coding rules
 

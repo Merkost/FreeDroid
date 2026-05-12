@@ -626,14 +626,17 @@
 /* Begin XCSwiftPackageProductDependency section */
 		08AE4C48FD3CEEAABD76116C /* FreeDroidData */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 2A14A9647196E82391BCA06D /* XCLocalSwiftPackageReference "Packages/FreeDroidData" */;
 			productName = FreeDroidData;
 		};
 		1A16527D7EDA256F7B079203 /* FreeDroidIPC */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = C2102BC05202DF6FB0CC975A /* XCLocalSwiftPackageReference "Packages/FreeDroidIPC" */;
 			productName = FreeDroidIPC;
 		};
 		1FC06241D75B9E20077E012C /* FreeDroidDomain */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 1C821DA1D5484D1294C8513C /* XCLocalSwiftPackageReference "Packages/FreeDroidDomain" */;
 			productName = FreeDroidDomain;
 		};
 		3F063C78AD3C30DD568982EE /* Sparkle */ = {
@@ -643,30 +646,37 @@
 		};
 		594B36AD92E2239E5EE68DE7 /* Gallery */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = A18A4DB94BF3869449D027B0 /* XCLocalSwiftPackageReference "Packages/Features/Gallery" */;
 			productName = Gallery;
 		};
 		6416C4292B8B9A891E95320F /* FileBrowser */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 33C866C3FEA6D2D24F1328F5 /* XCLocalSwiftPackageReference "Packages/Features/FileBrowser" */;
 			productName = FileBrowser;
 		};
 		9CF0383DEAADEF9011398D98 /* DeviceManagement */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 3C81E4A06F7279AC91B90BE7 /* XCLocalSwiftPackageReference "Packages/Features/DeviceManagement" */;
 			productName = DeviceManagement;
 		};
 		AA0BE5FF5B0AC5A5F2D1C4E0 /* FreeDroidIPC */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = C2102BC05202DF6FB0CC975A /* XCLocalSwiftPackageReference "Packages/FreeDroidIPC" */;
 			productName = FreeDroidIPC;
 		};
 		AAD96F97F35314685AA84700 /* FreeDroidUI */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = B7A3C851EBED938E6CE447F6 /* XCLocalSwiftPackageReference "Packages/FreeDroidUI" */;
 			productName = FreeDroidUI;
 		};
 		C450EFCB07619067F9DD1302 /* FreeDroidDomain */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 1C821DA1D5484D1294C8513C /* XCLocalSwiftPackageReference "Packages/FreeDroidDomain" */;
 			productName = FreeDroidDomain;
 		};
 		CBDC59F94B320EDB2516806E /* Transfer */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = FE0C1DB3F7FBAB3679D89FB8 /* XCLocalSwiftPackageReference "Packages/Features/Transfer" */;
 			productName = Transfer;
 		};
 /* End XCSwiftPackageProductDependency section */
