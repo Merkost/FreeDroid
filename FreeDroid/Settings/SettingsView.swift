@@ -41,8 +41,8 @@ struct GeneralSettingsView: View {
                 Text("Run multiple file copies at once. Use 1 if your phone or USB cable is unstable.")
                     .font(Typography.caption)
                     .foregroundStyle(.secondary)
-                Toggle("Use native ADB sync protocol", isOn: $preferences.useWireProtocol)
-                Text("Talks to your phone over a persistent socket instead of spawning a process per file. Big speedup on 'Preparing to copy'. Turn off if you hit weird listing or fetch errors.")
+                Toggle("Use native ADB sync protocol (experimental)", isOn: $preferences.useWireProtocol)
+                Text("Talks to your phone over a persistent socket instead of spawning a process per file. Big speedup on 'Preparing to copy' when it works, but currently throws 'framing violation' on devices that don't advertise LIST_V2/STAT_V2. Leave off unless you're testing.")
                     .font(Typography.caption)
                     .foregroundStyle(.secondary)
             }

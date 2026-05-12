@@ -61,12 +61,7 @@ public final class AppPreferences {
         self.appearance = AppearanceMode(rawValue: stored) ?? .system
         let parallelStored = UserDefaults.standard.integer(forKey: Self.parallelTransfersKey)
         self.parallelTransfers = ParallelTransfers(rawValue: parallelStored) ?? .three
-        if Self.sharedSuite.object(forKey: Self.wireProtocolKey) == nil {
-            self.useWireProtocol = true
-            Self.sharedSuite.set(true, forKey: Self.wireProtocolKey)
-        } else {
-            self.useWireProtocol = Self.sharedSuite.bool(forKey: Self.wireProtocolKey)
-        }
+        self.useWireProtocol = Self.sharedSuite.bool(forKey: Self.wireProtocolKey)
     }
 
     public func theme(for systemColorScheme: ColorScheme) -> Theme {
