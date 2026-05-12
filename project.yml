@@ -37,6 +37,9 @@ packages:
     path: Packages/Features/Gallery
   Transfer:
     path: Packages/Features/Transfer
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.0
 
 targets:
   FreeDroid:
@@ -79,6 +82,8 @@ targets:
         product: Gallery
       - package: Transfer
         product: Transfer
+      - package: Sparkle
+        product: Sparkle
       - target: FreeDroidFS
         embed: true
         codeSign: false

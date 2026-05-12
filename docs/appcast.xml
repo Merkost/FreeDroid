@@ -1,0 +1,9 @@
+<?xml version="1.0" standalone="yes"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>FreeDroid</title>
+    <link>https://example.github.io/FreeDroid/appcast.xml</link>
+    <description>Releases of FreeDroid</description>
+    <language>en</language>
+  </channel>
+</rss>
