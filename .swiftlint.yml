@@ -16,6 +16,8 @@ excluded:
   - Packages/FreeDroidMTP/.swiftpm
   - Packages/FreeDroidData/.build
   - Packages/FreeDroidData/.swiftpm
+  - Packages/FreeDroidIPC/.build
+  - Packages/FreeDroidIPC/.swiftpm
   - Packages/Features/DeviceManagement/.build
   - Packages/Features/DeviceManagement/.swiftpm
   - Packages/Features/FileBrowser/.build

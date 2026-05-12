@@ -27,6 +27,8 @@ packages:
     path: Packages/FreeDroidMTP
   FreeDroidData:
     path: Packages/FreeDroidData
+  FreeDroidIPC:
+    path: Packages/FreeDroidIPC
   DeviceManagement:
     path: Packages/Features/DeviceManagement
   FileBrowser:
@@ -67,6 +69,8 @@ targets:
         product: FreeDroidUI
       - package: FreeDroidData
         product: FreeDroidData
+      - package: FreeDroidIPC
+        product: FreeDroidIPC
       - package: DeviceManagement
         product: DeviceManagement
       - package: FileBrowser
@@ -75,3 +79,34 @@ targets:
         product: Gallery
       - package: Transfer
         product: Transfer
+      - target: FreeDroidFS
+        embed: true
+        codeSign: false
+
+  FreeDroidFS:
+    type: bundle
+    platform: macOS
+    deploymentTarget: "15.4"
+    sources:
+      - path: FreeDroidFS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.freedroid.FreeDroid.FreeDroidFS
+        INFOPLIST_FILE: FreeDroidFS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: FreeDroidFS/FreeDroidFS.entitlements
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGNING_ALLOWED: NO
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        SKIP_INSTALL: YES
+        WRAPPER_EXTENSION: fskitmodule
+        PRODUCT_NAME: FreeDroidFS
+        MACH_O_TYPE: mh_bundle
+        MACOSX_DEPLOYMENT_TARGET: "15.4"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+    dependencies:
+      - package: FreeDroidDomain
+        product: FreeDroidDomain
+      - package: FreeDroidIPC
+        product: FreeDroidIPC
