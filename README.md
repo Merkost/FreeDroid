@@ -5,21 +5,61 @@
 
 # FreeDroid
 
-*Android, in Finder. Open source. macOS-native.*
+### Your Android. Your Mac. Your files. **No subscription.**
+
+*The open-source, macOS-native file manager for Android — because you shouldn't pay rent to move a photo off your own phone.*
 
 [![macOS](https://img.shields.io/badge/macOS-15.4%2B-blue?logo=apple)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange?logo=swift)](https://swift.org)
 [![Build](https://img.shields.io/github/actions/workflow/status/merkost/FreeDroid/ci.yml?branch=main&label=build)](https://github.com/merkost/FreeDroid/actions)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/merkost/FreeDroid?label=latest&color=blue)](https://github.com/merkost/FreeDroid/releases)
+[![Price](https://img.shields.io/badge/price-%240.00%20forever-brightgreen)](#)
+[![Open source](https://img.shields.io/badge/closed%20source-no-purple)](#)
 
 </div>
 
 ---
 
+## The pitch
+
+You plugged your Android into a Mac. You wanted to drag three photos off it. The web told you to:
+
+- Install **macDroid** — *"7-day trial, then $19.95/year or $39.95 lifetime"*
+- Or install **MacDroid Pro** — *another paywall*
+- Or run **Android File Transfer** — Google quietly killed it in 2024
+- Or learn `adb pull` from a forum post
+
+So here's a fourth option:
+
+> ✨ **FreeDroid.** Open-source. macOS-native. Free as in *take it, fork it, ship it, charge nothing for it.* You shouldn't have to pay a subscription to access files you already own.
+
+Plug your phone in. The phone appears in Finder under **Locations**. Drag your photos. Done. That's the entire pitch.
+
+---
+
+## How it stacks up
+
+|                            | **FreeDroid**            | macDroid Free          | macDroid Pro                 | Android File Transfer |
+|----------------------------|--------------------------|------------------------|------------------------------|-----------------------|
+| Price                      | **$0 forever**           | Free, **read-only**    | Paid subscription            | Free *(discontinued)* |
+| Open source                | **MIT licensed**         | ❌                     | ❌                           | ❌                    |
+| Finder integration         | ✅ Locations sidebar     | Limited                | ✅                           | ❌ standalone window  |
+| Read & write               | ✅                       | **Read only**          | ✅                           | ✅                    |
+| Quick Look preview         | ✅                       | ❌                     | ✅                           | ❌                    |
+| Multi-device               | ✅                       | One                    | Multi                        | One                   |
+| Wi-Fi ADB (no cable)       | ✅ *(experimental)*      | ✅                     | ✅                           | ❌                    |
+| ADB + MTP transports       | ✅                       | ✅                     | ✅                           | MTP only              |
+| Telemetry / phone-home     | **None**                 | Unknown                | Unknown                      | Google                |
+| Sandboxed via File Provider| ✅                       | macFUSE required       | macFUSE required             | n/a                   |
+| Works on macOS 26          | ✅                       | ✅                     | ✅                           | **Broken**            |
+
+*macOS Tahoe (26) removed Android File Transfer's signing chain. FreeDroid was built fresh against the macOS 15.4 File Provider API — same one Dropbox, OneDrive, and iCloud Drive use — so it'll keep working when the next macOS lands.*
+
+---
+
 ## What it does
 
-Plug in your Android device, FreeDroid shows it in Finder's Locations sidebar — no System Settings toggle, no kernel extensions, no macFUSE. Browse `/sdcard` directly, preview files with Quick Look, and drag files in either direction. ADB gives you full filesystem access when USB debugging is on; MTP works without it. Multiple devices are handled simultaneously, each as its own location.
+Plug in your Android device, FreeDroid shows it in Finder's Locations sidebar — no System Settings toggle, no kernel extensions, no `macFUSE`, no nagware. Browse `/sdcard` directly, preview files with Quick Look, drag in either direction. ADB gives you full filesystem speed when USB Debugging is on; MTP handles devices that aren't in dev mode. Wi-Fi ADB pairing means you can also leave the cable in the drawer. Multiple devices show up simultaneously, each as its own location.
 
 ---
 
@@ -27,24 +67,28 @@ Plug in your Android device, FreeDroid shows it in Finder's Locations sidebar �
 
 <table>
   <tr>
-    <td>📂 <strong>Finder integration</strong><br>Device appears under Locations via <code>NSFileProviderReplicatedExtension</code>. No FSKit, no System Settings, no reboot.</td>
+    <td>📂 <strong>Finder integration</strong><br>Device appears under Locations via <code>NSFileProviderReplicatedExtension</code>. No FSKit, no System Settings toggle, no reboot.</td>
     <td>⚡ <strong>ADB + MTP transports</strong><br>Bundled <code>adb</code> binary for full filesystem speed; libmtp for no-debug-mode devices. Auto-selects ADB when authorized.</td>
   </tr>
   <tr>
-    <td>🗂 <strong>In-app file browser</strong><br>Sort, multi-select, rename, delete, mkdir. Breadcrumb navigation and keyboard shortcuts throughout.</td>
+    <td>📶 <strong>Wi-Fi ADB pairing</strong><br>Leave the cable in the drawer. Pair once with the 6-digit code from <em>Wireless Debugging</em>, reconnect automatically forever after.</td>
     <td>🔍 <strong>Inspector side panel</strong><br>Thumbnails, metadata, Open and Show in Finder actions for any selected file.</td>
   </tr>
   <tr>
-    <td>👁 <strong>Quick Look previews</strong><br>Press Space on any file for a native Quick Look preview without transferring it first.</td>
+    <td>👁 <strong>Quick Look previews</strong><br>Hit Space on any file for the native macOS Quick Look — no transfer required first.</td>
     <td>🖼 <strong>Photo Gallery</strong><br>Masonry grid with async thumbnails, date sections, and a folder picker to scope your view.</td>
   </tr>
   <tr>
-    <td>📤 <strong>Transfer queue</strong><br>Progress tracking, command strip, and toast notifications. Files land in <code>~/Downloads/FreeDroid/&lt;device&gt;/</code>.</td>
-    <td>🎨 <strong>macOS-native UI</strong><br>Big Sur materials, light and dark themes, motion presets. Feels at home on macOS 15.</td>
+    <td>🗂 <strong>In-app file browser</strong><br>Sort, multi-select, rename, delete, mkdir. Breadcrumb navigation, keyboard shortcuts (⌘1/⌘2/⌘3, ⌘A, ⇧-click range).</td>
+    <td>📤 <strong>Transfer queue</strong><br>Progress tracking, command strip, toast notifications. Files land in <code>~/Downloads/FreeDroid/&lt;device&gt;/</code>.</td>
   </tr>
   <tr>
-    <td>🔄 <strong>Sparkle in-app updates</strong><br>Ships with Sparkle 2 for seamless update delivery once the release pipeline is live.</td>
-    <td>📖 <strong>Open source, MIT</strong><br>No telemetry, no paywall, no subscription. Fork it, ship it, improve it.</td>
+    <td>🎨 <strong>macOS-native UI</strong><br>Big Sur materials, light & dark themes, motion presets. Built in SwiftUI with strict Swift 6 concurrency.</td>
+    <td>🛡 <strong>Privacy by design</strong><br>Zero telemetry. Zero analytics. Zero phone-home. Your files never touch our (non-existent) servers — there are none.</td>
+  </tr>
+  <tr>
+    <td>🔄 <strong>Sparkle in-app updates</strong><br>EdDSA-signed updates via Sparkle 2. No App Store gatekeeping, no DRM, no nagware popups.</td>
+    <td>📖 <strong>MIT licensed</strong><br>Fork it. Ship it. Rebrand it. Charge for it if you want — you can't say the same about the paid competition.</td>
   </tr>
 </table>
 
@@ -138,7 +182,7 @@ FreeDroid recognises **65+ Android OEM USB vendor IDs** — if your phone is on 
   </tr>
 </table>
 
-Don't see your brand? File an issue with the output of `system_profiler SPUSBDataType | grep -B1 'Vendor ID'` and we'll add it. The full table lives in [`Sources/FreeDroidData/USB/AndroidVendorIDs.swift`](Sources/FreeDroidData/USB/AndroidVendorIDs.swift) — PRs welcome.
+Don't see your brand? File an issue with the output of `system_profiler SPUSBDataType | grep -B1 'Vendor ID'` and we'll add it. The full table lives in [`Sources/FreeDroidData/USB/AndroidVendorIDs.swift`](Sources/FreeDroidData/USB/AndroidVendorIDs.swift) — PRs especially welcome.
 
 ---
 
@@ -154,6 +198,18 @@ open FreeDroid.xcworkspace
 ```
 
 The Run scheme's post-action automatically copies the build to `/Applications/FreeDroid.app` and re-registers the File Provider extension — required because macOS won't accept provider extensions from DerivedData.
+
+---
+
+## Why this exists
+
+Because in 2026, on a Mac, the answer to "*how do I get a single video file off my Android*" should not be **"open your wallet."**
+
+Apple shipped `NSFileProviderReplicatedExtension` in macOS 11.3 for exactly this kind of integration. It's free. It's stable. It's the same API powering Dropbox, OneDrive, iCloud Drive. There is no technical reason a free, open-source file manager for Android can't be a first-class macOS citizen.
+
+So this one is.
+
+If you find it useful: **star the repo, file an issue, send a PR.** That's the only price.
 
 ---
 
@@ -198,11 +254,13 @@ No additional tools are required for a standard build. `xcodegen` and `swiftlint
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding rules, signing setup, commit conventions, and the PR workflow.
 
+The shortest contribution: open `system_profiler SPUSBDataType`, find your phone's `Vendor ID`, file an issue if it isn't in [`AndroidVendorIDs.swift`](Sources/FreeDroidData/USB/AndroidVendorIDs.swift) yet. Five-minute fix, helps every future user of your brand.
+
 ---
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+**MIT** — see [`LICENSE`](LICENSE). Use it. Modify it. Embed it in your product. Just keep the notice.
 
 Third-party component licenses are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
@@ -213,3 +271,13 @@ Third-party component licenses are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PA
 - [Sparkle](https://sparkle-project.org) — in-app software updates
 - [libmtp](https://libmtp.sourceforge.net) / [libusb](https://libusb.info) — MTP transport (LGPL, dynamically linked)
 - [Android Open Source Project](https://source.android.com) — bundled `adb` binary (Apache 2.0)
+
+---
+
+<div align="center">
+
+**If FreeDroid saved you from a subscription, [⭐ the repo](https://github.com/merkost/FreeDroid).**
+
+*That's the whole business model.*
+
+</div>
