@@ -1,7 +1,10 @@
 import Foundation
+import os.log
 import FreeDroidDomain
 import FreeDroidADB
 import FreeDroidMTP
+
+private let registryLogger = Logger(subsystem: "app.freedroid", category: "registry")
 
 public actor DeviceRegistry {
     private var records: [DeviceID: DeviceRecord] = [:]
@@ -53,7 +56,7 @@ public actor DeviceRegistry {
         periodicTask?.cancel()
         periodicTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3))
+                try? await Task.sleep(for: .seconds(15))
                 guard !Task.isCancelled else { return }
                 await self?.safeRescan()
             }
@@ -94,7 +97,12 @@ public actor DeviceRegistry {
             mtpDevices: mtpDevices,
             into: &newRecords
         )
-        await addMTPRecords(mtpDevices: mtpDevices, into: &newRecords)
+        await addMTPRecords(
+            mtpDevices: mtpDevices,
+            adbSerials: authorizedSerials,
+            usbSnapshot: usbSnapshot,
+            into: &newRecords
+        )
         addUnauthorizedADBRecords(adbDevices: adbDevices, into: &newRecords)
         addChargingOnlyRecords(coveredSerials: Set(newRecords.keys.map(\.raw)),
                                authorizedSerials: authorizedSerials,
@@ -140,11 +148,24 @@ public actor DeviceRegistry {
 
     private func addMTPRecords(
         mtpDevices: [MTPRawDevice],
+        adbSerials: Set<String>,
+        usbSnapshot: [USBDeviceDescriptor],
         into newRecords: inout [DeviceID: DeviceRecord]
     ) async {
+        var skipped = 0
+        var emitted = 0
         for rawDevice in mtpDevices {
             let deviceID = DeviceID(raw: rawDevice.identifier)
             if newRecords[deviceID] != nil { continue }
+            let matchedDescriptor = usbSnapshot.first {
+                $0.vendorID == rawDevice.vendorID && $0.productID == rawDevice.productID
+            }
+            if let descriptor = matchedDescriptor,
+               let serial = descriptor.serialNumber,
+               adbSerials.contains(serial) {
+                skipped += 1
+                continue
+            }
             let session = MTPSession(deviceID: deviceID, raw: rawDevice)
             guard let deviceInfo = try? await session.info else { continue }
             let deviceRecord = Device(
@@ -158,7 +179,9 @@ public actor DeviceRegistry {
                 connectionState: .ready
             )
             newRecords[deviceID] = DeviceRecord(device: deviceRecord, transport: session)
+            emitted += 1
         }
+        registryLogger.debug("MTP scan: \(mtpDevices.count) discovered, \(skipped) owned by ADB, \(emitted) emitted")
     }
 
     private func addUnauthorizedADBRecords(
