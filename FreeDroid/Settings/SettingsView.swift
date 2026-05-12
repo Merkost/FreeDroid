@@ -41,6 +41,10 @@ struct GeneralSettingsView: View {
                 Text("Run multiple file copies at once. Use 1 if your phone or USB cable is unstable.")
                     .font(Typography.caption)
                     .foregroundStyle(.secondary)
+                Toggle("Use native ADB sync protocol", isOn: $preferences.useWireProtocol)
+                Text("Talks to your phone over a persistent socket instead of spawning a process per file. Big speedup on 'Preparing to copy'. Turn off if you hit weird listing or fetch errors.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

@@ -1,17 +1,21 @@
 import Foundation
 import FreeDroidProviderShared
 
-actor ProviderTransport {
+final class ProviderTransport: @unchecked Sendable {
     let deviceID: DeviceID
     private var connection: NSXPCConnection?
+    private let lock = NSLock()
 
     init(deviceID: DeviceID) {
         self.deviceID = deviceID
     }
 
     func invalidate() async {
-        connection?.invalidate()
+        lock.lock()
+        let conn = connection
         connection = nil
+        lock.unlock()
+        conn?.invalidate()
     }
 
     func list(_ path: RemotePath) async throws -> [RemoteEntry] {
@@ -96,6 +100,8 @@ actor ProviderTransport {
     }
 
     private func makeProxy() -> any XPCFileServerProtocol {
+        lock.lock()
+        defer { lock.unlock() }
         if connection == nil {
             let conn = NSXPCConnection(serviceName: XPCService.bundleIdentifier)
             conn.remoteObjectInterface = NSXPCInterface(with: XPCFileServerProtocol.self)

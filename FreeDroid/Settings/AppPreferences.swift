@@ -44,8 +44,16 @@ public final class AppPreferences {
         }
     }
 
+    public var useWireProtocol: Bool {
+        didSet {
+            Self.sharedSuite.set(useWireProtocol, forKey: Self.wireProtocolKey)
+        }
+    }
+
     private static let appearanceKey = "FreeDroid.Appearance"
     private static let parallelTransfersKey = "FreeDroid.ParallelTransfersPerDevice"
+    private static let wireProtocolKey = "freedroid.useWireClient"
+    private static let sharedSuite = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
 
     public init() {
         let stored = UserDefaults.standard.string(forKey: Self.appearanceKey)
@@ -53,6 +61,12 @@ public final class AppPreferences {
         self.appearance = AppearanceMode(rawValue: stored) ?? .system
         let parallelStored = UserDefaults.standard.integer(forKey: Self.parallelTransfersKey)
         self.parallelTransfers = ParallelTransfers(rawValue: parallelStored) ?? .three
+        if Self.sharedSuite.object(forKey: Self.wireProtocolKey) == nil {
+            self.useWireProtocol = true
+            Self.sharedSuite.set(true, forKey: Self.wireProtocolKey)
+        } else {
+            self.useWireProtocol = Self.sharedSuite.bool(forKey: Self.wireProtocolKey)
+        }
     }
 
     public func theme(for systemColorScheme: ColorScheme) -> Theme {

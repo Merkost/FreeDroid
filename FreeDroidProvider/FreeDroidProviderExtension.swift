@@ -7,6 +7,8 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
     let deviceID: DeviceID
     let transport: ProviderTransport
     let cache: ContentCache
+    let enumerationCache: EnumerationCache
+    let fetchGate: FetchGate
 
     required init(domain: NSFileProviderDomain) {
         self.domain = domain
@@ -14,6 +16,8 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         self.deviceID = deviceID
         self.transport = ProviderTransport(deviceID: deviceID)
         self.cache = ContentCache()
+        self.enumerationCache = EnumerationCache()
+        self.fetchGate = FetchGate(limit: FetchGate.defaultLimit())
         super.init()
     }
 
@@ -49,11 +53,20 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         nonisolated(unsafe) let handler = completionHandler
         nonisolated(unsafe) let progress = Progress(totalUnitCount: -1)
         Task {
+            await self.fetchGate.acquire()
+            defer { Task { await self.fetchGate.release() } }
             do {
                 guard let path = ItemIdentifier.decode(itemIdentifier.rawValue) else {
                     throw NSFileProviderError(.noSuchItem)
                 }
-                let entry = try await transport.stat(path)
+                let entry: RemoteEntry
+                if let cached = await self.enumerationCache.lookup(path) {
+                    entry = cached
+                } else {
+                    let fresh = try await transport.stat(path)
+                    await self.enumerationCache.record([fresh])
+                    entry = fresh
+                }
                 progress.totalUnitCount = entry.sizeBytes ?? -1
                 let ext = (entry.name as NSString).pathExtension
                 let key = ContentKey(
@@ -120,7 +133,8 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         return FolderEnumerator(
             container: containerItemIdentifier,
             folderPath: path,
-            transport: transport
+            transport: transport,
+            enumerationCache: enumerationCache
         )
     }
 
@@ -261,8 +275,12 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         guard let path = ItemIdentifier.decode(identifier.rawValue) else {
             throw NSFileProviderError(.noSuchItem)
         }
-        let entry = try await transport.stat(path)
         let parent = path.parent ?? .root
+        if let cached = await enumerationCache.lookup(path) {
+            return ProviderItem(entry: cached, parent: parent)
+        }
+        let entry = try await transport.stat(path)
+        await enumerationCache.record([entry])
         return ProviderItem(entry: entry, parent: parent)
     }
 }
