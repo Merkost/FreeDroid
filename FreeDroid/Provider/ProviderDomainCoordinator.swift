@@ -20,20 +20,21 @@ final class ProviderDomainCoordinator {
         guard task == nil else { return }
         task = Task { [weak self] in
             guard let self else { return }
-            await self.removeAllDomains()
+            await self.adoptExistingDomains()
             for await snapshot in await self.registry.observe() {
                 await self.reconcile(snapshot)
             }
         }
     }
 
-    private func removeAllDomains() async {
+    private func adoptExistingDomains() async {
         do {
             let existing = try await Self.fetchDomains()
-            let ours = existing.filter { ourIdentifierLooksLikeAndroid($0.identifier.rawValue) }
-            for domain in ours {
-                try? await NSFileProviderManager.remove(domain)
-                providerLogger.info("Removed domain to force cache flush: \(domain.displayName, privacy: .public)")
+            for domain in existing where ourIdentifierLooksLikeAndroid(domain.identifier.rawValue) {
+                let deviceID = DeviceID(raw: domain.identifier.rawValue)
+                active.insert(deviceID)
+                signalRefresh(for: domain)
+                providerLogger.info("Adopted existing domain: \(domain.displayName, privacy: .public)")
             }
         } catch {
             providerLogger.error("List domains failed: \(String(describing: error), privacy: .public)")
@@ -65,7 +66,6 @@ final class ProviderDomainCoordinator {
     func stop() {
         task?.cancel()
         task = nil
-        Task { await self.removeAll() }
     }
 
     private func reconcile(_ devices: [Device]) async {
@@ -115,7 +115,4 @@ final class ProviderDomainCoordinator {
         }
     }
 
-    private func removeAll() async {
-        for id in active { await removeDomain(for: id) }
-    }
 }
