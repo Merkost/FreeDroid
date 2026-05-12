@@ -30,7 +30,11 @@
 		<string>$(PRODUCT_MODULE_NAME).FreeDroidFSModule</string>
 		<key>FSShortName</key>
 		<string>freedroid</string>
-		<key>FSSupportsServerURLs</key>
+		<key>FSSupportedSchemes</key>
+		<array>
+			<string>freedroid</string>
+		</array>
+		<key>FSSupportsGenericURLResources</key>
 		<true/>
 		<key>FSSupportsBlockResources</key>
 		<false/>

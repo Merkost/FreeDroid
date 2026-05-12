@@ -13,7 +13,8 @@ final class FreeDroidFSModule: FSUnaryFileSystem, FSUnaryFileSystemOperations {
         resource: FSResource,
         replyHandler: @escaping @Sendable (FSProbeResult?, (any Error)?) -> Void
     ) {
-        let containerID = FSContainerIdentifier(uuid: UUID())
+        let serial = extractSerial(from: resource)
+        let containerID = VolumeIdentifierMint.containerID(for: serial)
         replyHandler(.recognized(name: "FreeDroid", containerID: containerID), nil)
     }
 
@@ -22,8 +23,10 @@ final class FreeDroidFSModule: FSUnaryFileSystem, FSUnaryFileSystemOperations {
         options: FSTaskOptions,
         replyHandler: @escaping @Sendable (FSVolume?, (any Error)?) -> Void
     ) {
-        let deviceID = DeviceID(raw: UUID().uuidString)
-        let displayName = "Android Device"
+        let serial = extractSerial(from: resource)
+        let displayName = extractDisplayName(from: resource)
+        logger.info("Loading resource for device \(serial, privacy: .public) (\(displayName, privacy: .public))")
+        let deviceID = DeviceID(raw: serial)
         let volume = FreeDroidVolume(
             deviceID: deviceID,
             displayName: displayName,
@@ -37,6 +40,23 @@ final class FreeDroidFSModule: FSUnaryFileSystem, FSUnaryFileSystemOperations {
         options: FSTaskOptions,
         replyHandler: @escaping @Sendable ((any Error)?) -> Void
     ) {
+        let serial = extractSerial(from: resource)
+        logger.info("Unloading resource for device \(serial, privacy: .public)")
         replyHandler(nil)
+    }
+
+    private func extractSerial(from resource: FSResource) -> String {
+        if #available(macOS 26.0, *), let urlResource = resource as? FSGenericURLResource {
+            return urlResource.url.host ?? UUID().uuidString
+        }
+        return UUID().uuidString
+    }
+
+    private func extractDisplayName(from resource: FSResource) -> String {
+        if #available(macOS 26.0, *), let urlResource = resource as? FSGenericURLResource {
+            let rawPath = urlResource.url.lastPathComponent
+            return rawPath.removingPercentEncoding ?? rawPath
+        }
+        return "Android Device"
     }
 }

@@ -68,6 +68,7 @@ targets:
         product: Transfer
       - package: Sparkle
         product: Sparkle
+      - sdk: NetFS.framework
       - target: FreeDroidFS
         embed: true
         codeSign: true

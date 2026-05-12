@@ -29,11 +29,14 @@
 		5FD76C5C1D431AC00A0D2913 /* FreeDroidIPC in Frameworks */ = {isa = PBXBuildFile; productRef = AA0BE5FF5B0AC5A5F2D1C4E0 /* FreeDroidIPC */; };
 		622A4AD264A2354B10D4031F /* DeviceManagement in Frameworks */ = {isa = PBXBuildFile; productRef = 9CF0383DEAADEF9011398D98 /* DeviceManagement */; };
 		66E51F384FC71689F16EC52B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15915AB57BB54D1BB62C7AB /* SettingsView.swift */; };
+		8534C4569CEC7972E17290C5 /* MountedVolumeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFD4419FE15DCBEBFADB268 /* MountedVolumeStore.swift */; };
 		85DCC9E33545606122739AB2 /* FreeDroidApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 563F1FD007671E7BC7E2F8A5 /* FreeDroidApp.swift */; };
 		8C0309E304102E6DF43BBED2 /* VolumeIdentifierMint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FCC54E93D2DF2453EC54B02 /* VolumeIdentifierMint.swift */; };
+		981DA9A898BCD5EACA69C607 /* MountCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90FCA5A147E59132088784A /* MountCoordinator.swift */; };
 		A463F893BC1F49098DCDD345 /* FreeDroidItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60D67CF4C73F222B5DD09ECF /* FreeDroidItem.swift */; };
 		A4B96B2AF74234A032AC8376 /* XPCConnectionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E12843AEB84C3AAC4AC43AE /* XPCConnectionRegistry.swift */; };
 		A4FD4F440C062DA21827A048 /* FreeDroidItemCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F7A57948B640CCA24FD23F8 /* FreeDroidItemCache.swift */; };
+		AD7C0A21C7529B322606712C /* NetFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 162884523BB388FF94563842 /* NetFS.framework */; };
 		C72FE23E22AFA424FDDCE134 /* DirectoryEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04647EEDF5D5C58E043EE127 /* DirectoryEnumerator.swift */; };
 		CADEE531BA6F59AC83005616 /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69AE9B1C3C39145FAC2C2FFC /* AppContainer.swift */; };
 		CDB36E2A36790755BF68BC27 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 3F063C78AD3C30DD568982EE /* Sparkle */; };
@@ -70,6 +73,7 @@
 		076D283090DC49D3C0C96056 /* FSExtensionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FSExtensionMonitor.swift; sourceTree = "<group>"; };
 		0BE0346B8A50883EAB134390 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0FCC54E93D2DF2453EC54B02 /* VolumeIdentifierMint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeIdentifierMint.swift; sourceTree = "<group>"; };
+		162884523BB388FF94563842 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = System/Library/Frameworks/NetFS.framework; sourceTree = SDKROOT; };
 		3BD6795936653DA5827425B0 /* FinderRevealer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRevealer.swift; sourceTree = "<group>"; };
 		3C313995A32BDC846AB7F232 /* XPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCClient.swift; sourceTree = "<group>"; };
 		4795F8F26599DDE1A0E94313 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -88,9 +92,11 @@
 		9F7A57948B640CCA24FD23F8 /* FreeDroidItemCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreeDroidItemCache.swift; sourceTree = "<group>"; };
 		A15915AB57BB54D1BB62C7AB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A3E22129B365D7622CE3B4A4 /* FreeDroidFS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FreeDroidFS.entitlements; sourceTree = "<group>"; };
+		A90FCA5A147E59132088784A /* MountCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MountCoordinator.swift; sourceTree = "<group>"; };
 		B337F72A08ADE7E8C2C83700 /* XPCFileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCFileServer.swift; sourceTree = "<group>"; };
 		BBFEC0E106796BC745209F73 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
 		C70708F3899D9DD04979DE3C /* FreeDroid.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FreeDroid.entitlements; sourceTree = "<group>"; };
+		DEFD4419FE15DCBEBFADB268 /* MountedVolumeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MountedVolumeStore.swift; sourceTree = "<group>"; };
 		E237E2C482ED6F959CEFC98B /* FreeDroid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FreeDroid.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2B21BA991C5883C22B23076 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
 		F68C86B168910F46DA6CB9E1 /* FreeDroid */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FreeDroid; path = .; sourceTree = SOURCE_ROOT; };
@@ -110,6 +116,7 @@
 				571A2059EF9FDE8A649743FD /* Gallery in Frameworks */,
 				3642D7F759D3E49B1389B305 /* Transfer in Frameworks */,
 				CDB36E2A36790755BF68BC27 /* Sparkle in Frameworks */,
+				AD7C0A21C7529B322606712C /* NetFS.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +146,8 @@
 			isa = PBXGroup;
 			children = (
 				076D283090DC49D3C0C96056 /* FSExtensionMonitor.swift */,
+				A90FCA5A147E59132088784A /* MountCoordinator.swift */,
+				DEFD4419FE15DCBEBFADB268 /* MountedVolumeStore.swift */,
 			);
 			path = Mount;
 			sourceTree = "<group>";
@@ -158,6 +167,7 @@
 				87F564D08078CE49BDD92B2F /* FreeDroid */,
 				8CE84E664A0CB3525F3F2BEF /* FreeDroidFS */,
 				4E526C697C6BF56EE78EC22F /* Packages */,
+				C2F7BA75C15244C4961DD29C /* Frameworks */,
 				A34E4A2A01578EF3CA658938 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -212,6 +222,14 @@
 				7430A06D2122947E51A08284 /* FreeDroidFS.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C2F7BA75C15244C4961DD29C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				162884523BB388FF94563842 /* NetFS.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		DA10B5DDA2F7090F189EF911 /* Settings */ = {
@@ -293,11 +311,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					055B557691E494BE6D6582F4 = {
-						DevelopmentTeam = K7KLY2K5TR;
+						DevelopmentTeam = P47X2292CM;
 						ProvisioningStyle = Automatic;
 					};
 					0F2D4783CE4520BC8446FBC5 = {
-						DevelopmentTeam = K7KLY2K5TR;
+						DevelopmentTeam = P47X2292CM;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -353,6 +371,8 @@
 				1F3FA03F1EA1E7D85ECDB8DD /* FSExtensionMonitor.swift in Sources */,
 				4ED5736673B2DCFAD20173F2 /* FinderRevealer.swift in Sources */,
 				85DCC9E33545606122739AB2 /* FreeDroidApp.swift in Sources */,
+				981DA9A898BCD5EACA69C607 /* MountCoordinator.swift in Sources */,
+				8534C4569CEC7972E17290C5 /* MountedVolumeStore.swift in Sources */,
 				66E51F384FC71689F16EC52B /* SettingsView.swift in Sources */,
 				09D79D5B6BA78A432B67B8EE /* SystemSettingsLauncher.swift in Sources */,
 				A4B96B2AF74234A032AC8376 /* XPCConnectionRegistry.swift in Sources */,

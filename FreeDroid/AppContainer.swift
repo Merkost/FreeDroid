@@ -11,8 +11,6 @@ import FileBrowser
 import Gallery
 import Transfer
 
-private let mountLogger = Logger(subsystem: "com.merkost.freedroid", category: "mount")
-
 @MainActor
 @Observable
 final class AppContainer {
@@ -38,6 +36,7 @@ final class AppContainer {
 
     let xpcRegistry = XPCConnectionRegistry()
     let extensionMonitor = FSExtensionMonitor()
+    let mountCoordinator: MountCoordinator
 
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -65,6 +64,7 @@ final class AppContainer {
             repository: transferRepository,
             cancel: CancelTransferUseCase(repository: transferRepository)
         )
+        self.mountCoordinator = MountCoordinator(registry: registry)
     }
 
     func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {
@@ -101,27 +101,6 @@ final class AppContainer {
         try? await registry.start()
         xpcRegistry.start(registry: registry)
         extensionMonitor.start()
-        await observeDevicesForMounting()
-    }
-
-    @available(macOS 15.4, *)
-    private func observeDevicesForMounting() async {
-        let logger = mountLogger
-        let freedroidModuleID = "com.merkost.freedroid.FreeDroidFS"
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            FSClient.shared.fetchInstalledExtensions { modules, error in
-                defer { continuation.resume() }
-                if let error {
-                    logger.error("Mount failed: \(String(describing: error), privacy: .public)")
-                    return
-                }
-                let found = modules?.contains { $0.bundleIdentifier == freedroidModuleID } ?? false
-                if found {
-                    logger.info("FreeDroidFS module found; awaiting entitlement for mount activation")
-                } else {
-                    logger.info("FreeDroidFS module not installed; mount stub — entitlement required")
-                }
-            }
-        }
+        mountCoordinator.start()
     }
 }

@@ -19,9 +19,11 @@ struct FreeDroidApp: App {
         WindowGroup {
             ContentView()
                 .environment(container)
+                .frame(minWidth: 920, idealWidth: 1200, minHeight: 600, idealHeight: 800)
         }
         .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
+        .defaultSize(width: 1200, height: 800)
+        .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates\u{2026}") {

@@ -22,6 +22,7 @@ let package = Package(
         .library(name: "Transfer", targets: ["Transfer"])
     ],
     dependencies: [
+        .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.4"),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.17.0"),
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.4.0")
