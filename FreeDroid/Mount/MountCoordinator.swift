@@ -73,7 +73,7 @@ final class MountCoordinator {
 
     private func unmount(deviceID: DeviceID, at mountURL: URL) async {
         do {
-            try performUnmount(at: mountURL)
+            try await performUnmount(at: mountURL)
             await store.forget(deviceID)
             mountLogger.info("Unmounted \(mountURL.path, privacy: .public)")
         } catch {
@@ -104,7 +104,7 @@ final class MountCoordinator {
         let mountOptions = NSMutableDictionary()
         mountOptions[kNetFSMountAtMountDirKey] = true as CFBoolean
 
-        var mountpoints: CFArray?
+        var mountpoints: Unmanaged<CFArray>?
         let status = NetFSMountURLSync(
             resourceURL as CFURL,
             requestedMount as CFURL,
@@ -115,23 +115,20 @@ final class MountCoordinator {
             &mountpoints
         )
 
+        let resolvedPaths = mountpoints?.takeRetainedValue() as? [String]
+
         if status != 0 {
             try? FileManager.default.removeItem(at: requestedMount)
             throw TransportError.ioFailure(message: "NetFSMountURLSync returned \(status) for \(resourceURL.absoluteString)")
         }
 
-        if let paths = mountpoints as? [String], let first = paths.first {
+        if let first = resolvedPaths?.first {
             return URL(fileURLWithPath: first, isDirectory: true)
         }
         return requestedMount
     }
 
-    private func performUnmount(at mountURL: URL) throws {
-        var error: NSError?
-        let succeeded = NSWorkspace.shared.unmountAndEjectDeviceAtURL(mountURL, error: &error)
-        if !succeeded {
-            let message = error?.localizedDescription ?? "unknown error"
-            throw TransportError.ioFailure(message: "unmountAndEjectDeviceAtURL failed: \(message)")
-        }
+    private func performUnmount(at mountURL: URL) async throws {
+        try await NSWorkspace.shared.unmountAndEjectDevice(at: mountURL)
     }
 }

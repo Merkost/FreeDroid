@@ -100,3 +100,25 @@ targets:
         product: FreeDroidDomain
       - package: FreeDroidPackages
         product: FreeDroidIPC
+
+schemes:
+  FreeDroid:
+    build:
+      targets:
+        FreeDroid: all
+      postActions:
+        - script: '"${SRCROOT}/Scripts/install-to-applications.sh"'
+          name: Install to /Applications and reload FSKit extension
+          settingsTarget: FreeDroid
+    run:
+      config: Debug
+      executable: FreeDroid
+      askForAppToLaunch: false
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
