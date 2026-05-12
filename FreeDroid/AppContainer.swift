@@ -35,6 +35,8 @@ final class AppContainer {
 
     let xpcRegistry = XPCConnectionRegistry()
     let domainCoordinator: ProviderDomainCoordinator
+    let wifiStore = WifiEndpointStore()
+    let wifiCoordinator: WifiADBCoordinator
 
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -63,6 +65,15 @@ final class AppContainer {
             cancel: CancelTransferUseCase(repository: transferRepository)
         )
         self.domainCoordinator = ProviderDomainCoordinator(registry: registry)
+        self.wifiCoordinator = WifiADBCoordinator(adbServer: adbServer, store: wifiStore)
+    }
+
+    func pair(host: String, port: Int, code: String) async throws {
+        try await wifiCoordinator.pair(host: host, port: port, code: code)
+    }
+
+    func disconnectWifi(_ endpoint: WifiEndpoint) async throws {
+        try await wifiCoordinator.disconnect(endpoint)
     }
 
     func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {
@@ -100,5 +111,6 @@ final class AppContainer {
         try? await registry.start()
         xpcRegistry.start(registry: registry)
         domainCoordinator.start()
+        await wifiCoordinator.start()
     }
 }

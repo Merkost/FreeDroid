@@ -16,6 +16,13 @@ actor StubRunner: ADBRunner {
         return ADBProcessOutput(exitCode: 0, stdout: stdout, stderr: "")
     }
 
+    func runWithStdin(_ command: ADBCommand, stdin: String, timeout: Duration) async throws -> ADBProcessOutput {
+        recorded.append(command)
+        let key = command.arguments.joined(separator: " ")
+        let stdout = outputs[key] ?? ""
+        return ADBProcessOutput(exitCode: 0, stdout: stdout, stderr: "")
+    }
+
     func runStreaming(_ command: ADBCommand, onLine: @escaping @Sendable (String) -> Void) async throws -> Int32 {
         recorded.append(command)
         return 0

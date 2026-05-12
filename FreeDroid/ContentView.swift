@@ -11,6 +11,8 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.openSettings) private var openSettings
     @State private var tab: DetailTab = .files
+    @State private var showingWifiPair = false
+    @State private var wifiPairVM = WifiPairSheetViewModel()
 
     enum DetailTab: Hashable { case files, gallery }
 
@@ -34,10 +36,22 @@ struct ContentView: View {
                             },
                             onShowInFinder: { device in
                                 Task { await ProviderRevealer.revealInFinder(deviceID: device.id) }
+                            },
+                            onAddWifi: {
+                                wifiPairVM = WifiPairSheetViewModel()
+                                showingWifiPair = true
                             }
                         )
                         appearanceMenu
                             .padding(Spacing.md)
+                    }
+                    .sheet(isPresented: $showingWifiPair) {
+                        WifiPairSheet(
+                            viewModel: wifiPairVM,
+                            coordinator: container.wifiCoordinator,
+                            onDismiss: { showingWifiPair = false }
+                        )
+                        .padding(Spacing.xl)
                     }
                     Divider().overlay(theme.colors.line)
                     detail

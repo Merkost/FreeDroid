@@ -8,26 +8,42 @@ public struct DeviceListView: View {
     var deviceFractions: [DeviceID: Double]
     var onRevealInFinder: (Device) -> Void
     var onShowInFinder: (Device) -> Void
+    var onAddWifi: (() -> Void)?
 
     public init(
         viewModel: DeviceListViewModel,
         deviceFractions: [DeviceID: Double] = [:],
         onRevealInFinder: @escaping (Device) -> Void = { _ in },
-        onShowInFinder: @escaping (Device) -> Void = { _ in }
+        onShowInFinder: @escaping (Device) -> Void = { _ in },
+        onAddWifi: (() -> Void)? = nil
     ) {
         self.viewModel = viewModel
         self.deviceFractions = deviceFractions
         self.onRevealInFinder = onRevealInFinder
         self.onShowInFinder = onShowInFinder
+        self.onAddWifi = onAddWifi
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Devices")
-                .font(Typography.label)
-                .foregroundStyle(theme.colors.text2)
-                .padding(.horizontal, Spacing.sm + 2)
-                .padding(.top, Spacing.lg)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Devices")
+                    .font(Typography.label)
+                    .foregroundStyle(theme.colors.text2)
+                Spacer()
+                if let onAddWifi {
+                    Button(action: onAddWifi) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(theme.colors.text2)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Pair Android phone over Wi-Fi")
+                }
+            }
+            .padding(.horizontal, Spacing.sm + 2)
+            .padding(.top, Spacing.lg)
+            .padding(.bottom, Spacing.sm)
             ScrollView {
                 LazyVStack(spacing: Spacing.xs + 2) {
                     if viewModel.devices.isEmpty {

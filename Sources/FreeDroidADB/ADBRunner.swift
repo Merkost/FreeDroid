@@ -2,6 +2,7 @@ import Foundation
 
 public protocol ADBRunner: Sendable {
     func run(_ command: ADBCommand, timeout: Duration) async throws -> ADBProcessOutput
+    func runWithStdin(_ command: ADBCommand, stdin: String, timeout: Duration) async throws -> ADBProcessOutput
     func runStreaming(
         _ command: ADBCommand,
         onLine: @escaping @Sendable (String) -> Void
@@ -81,6 +82,67 @@ public actor LiveADBRunner: ADBRunner {
 
             do {
                 try process.run()
+            } catch {
+                timeoutTask.cancel()
+                resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))
+            }
+        }
+    }
+
+    public func runWithStdin(_ command: ADBCommand, stdin stdinPayload: String, timeout: Duration = .seconds(30)) async throws -> ADBProcessOutput {
+        try await withCheckedThrowingContinuation { continuation in
+            let process = Process()
+            process.executableURL = binary
+            process.arguments = command.arguments
+            process.environment = serverEnvironment()
+
+            let stdinPipe = Pipe()
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
+            process.standardInput = stdinPipe
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+
+            let resolver = ContinuationResolver(continuation: continuation)
+            let buffer = StreamingBuffer()
+
+            stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if chunk.isEmpty { return }
+                buffer.append(chunk)
+            }
+
+            let timeoutTask = Task {
+                try? await Task.sleep(for: timeout)
+                if process.isRunning {
+                    process.terminate()
+                    resolver.fail(ADBRunnerError.timeout)
+                }
+            }
+
+            process.terminationHandler = { proc in
+                timeoutTask.cancel()
+                stdoutPipe.fileHandleForReading.readabilityHandler = nil
+                if let tail = try? stdoutPipe.fileHandleForReading.readToEnd() {
+                    buffer.append(tail)
+                }
+                let errData = (try? stderrPipe.fileHandleForReading.readToEnd()) ?? Data()
+                let stdout = String(data: buffer.snapshot(), encoding: .utf8) ?? ""
+                let stderr = String(data: errData, encoding: .utf8) ?? ""
+                let output = ADBProcessOutput(exitCode: proc.terminationStatus, stdout: stdout, stderr: stderr)
+                if proc.terminationStatus != 0 {
+                    resolver.fail(ADBRunnerError.nonZeroExit(code: proc.terminationStatus, stderr: stderr))
+                } else {
+                    resolver.succeed(output)
+                }
+            }
+
+            do {
+                try process.run()
+                if let data = (stdinPayload + "\n").data(using: .utf8) {
+                    stdinPipe.fileHandleForWriting.write(data)
+                }
+                try? stdinPipe.fileHandleForWriting.close()
             } catch {
                 timeoutTask.cancel()
                 resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))

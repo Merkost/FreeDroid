@@ -34,4 +34,19 @@ struct ADBCommandTests {
         let cmd = ADBCommand.getProp(serial: "ABC123", property: "ro.product.model")
         #expect(cmd.arguments == ["-s", "ABC123", "shell", "getprop", "ro.product.model"])
     }
+
+    @Test func pairProducesCorrectArgs() {
+        let cmd = ADBCommand.pair(host: "192.168.1.5", port: 37561)
+        #expect(cmd.arguments == ["pair", "192.168.1.5:37561"])
+    }
+
+    @Test func connectProducesCorrectArgs() {
+        let cmd = ADBCommand.connect(host: "192.168.1.5", port: 5555)
+        #expect(cmd.arguments == ["connect", "192.168.1.5:5555"])
+    }
+
+    @Test func disconnectProducesCorrectArgs() {
+        let cmd = ADBCommand.disconnect(host: "192.168.1.5", port: 5555)
+        #expect(cmd.arguments == ["disconnect", "192.168.1.5:5555"])
+    }
 }
