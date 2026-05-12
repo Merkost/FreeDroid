@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FreeDroid · icon options</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    background: linear-gradient(180deg, #1a1d23, #0c0e12);
+    color: #e8ebf0;
+    min-height: 100vh;
+    padding: 48px 32px 96px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+  }
+  .lede {
+    color: #8e95a3;
+    margin: 0 0 40px;
+    max-width: 640px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 18px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cfd4dd;
+    letter-spacing: 0.01em;
+  }
+  .caption {
+    font-size: 12px;
+    color: #8e95a3;
+    text-align: center;
+    line-height: 1.5;
+    max-width: 240px;
+  }
+  .icon-frame {
+    width: 220px;
+    height: 220px;
+    border-radius: 50px;
+    overflow: hidden;
+    box-shadow:
+      0 2px 4px rgba(0,0,0,0.4),
+      0 18px 40px rgba(0,0,0,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .icon-frame svg { display: block; }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    justify-content: center;
+    margin-top: -4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .row .scale {
+    width: 32px;
+    height: 32px;
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  .row .scale.small {
+    width: 16px;
+    height: 16px;
+    border-radius: 3.5px;
+  }
+  .pick-note {
+    color: #6f7585;
+    font-size: 11px;
+    text-align: center;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>FreeDroid · icon options</h1>
+<p class="lede">
+Six directions. Each card shows the icon at full size plus 32 px and 16 px scaled previews so you can judge the design at the sizes Finder, Dock and Spotlight actually use. Backgrounds and proportions are macOS-native squircles.
+</p>
+
+<div class="grid">
+
+<!-- 1. droid on graphite (currently shipping) -->
+<div class="card">
+  <div class="icon-frame">
+    <svg viewBox="0 0 1024 1024" width="220" height="220" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g1bg" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#1a212b"/>
+          <stop offset="1" stop-color="#0f141b"/>
+        </linearGradient>
+        <linearGradient id="g1droid" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#3DDC84"/>
+          <stop offset="1" stop-color="#0FB36A"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" rx="230" ry="230" fill="url(#g1bg)"/>
+      <rect width="1024" height="1024" rx="230" ry="230" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+      <g transform="translate(512 512)">
+        <line x1="-160" y1="-310" x2="-110" y2="-220" stroke="url(#g1droid)" stroke-width="32" stroke-linecap="round"/>
+        <line x1="160"  y1="-310" x2="110"  y2="-220" stroke="url(#g1droid)" stroke-width="32" stroke-linecap="round"/>
+        <path d="M -260 0 a 260 260 0 0 1 520 0 Z" fill="url(#g1droid)"/>
+        <rect x="-260" y="0" width="520" height="180" rx="10" fill="url(#g1droid)"/>
+        <circle cx="-110" cy="-60" r="28" fill="#0f141b"/>
+        <circle cx="110"  cy="-60" r="28" fill="#0f141b"/>
+      </g>
+    </svg>
+  </div>
+  <div class="label">1 · droid on graphite (shipping)</div>
+  <div class="caption">Classic Android mascot in green on a deep graphite squircle. Reads instantly. Risk: looks more "Android tool" than "Mac app".</div>
+  <div class="row">
+    <div class="scale"><svg viewBox="0 0 1024 1024" width="32" height="32"><rect width="1024" height="1024" rx="230" fill="#0f141b"/><g transform="translate(512 512)"><path d="M -260 0 a 260 260 0 0 1 520 0 Z" fill="#3DDC84"/><rect x="-260" y="0" width="520" height="180" rx="10" fill="#3DDC84"/></g></svg></div>
+    <div class="scale small"><svg viewBox="0 0 1024 1024" width="16" height="16"><rect width="1024" height="1024" rx="230" fill="#0f141b"/><g transform="translate(512 512)"><path d="M -260 0 a 260 260 0 0 1 520 0 Z" fill="#3DDC84"/><rect x="-260" y="0" width="520" height="180" rx="10" fill="#3DDC84"/></g></svg></div>
+  </div>
+  <div class="pick-note">full · 32 · 16 px</div>
+</div>
+
+<!-- 2. droid on Finder-blue folder -->
+<div class="card">
+  <div class="icon-frame">
+    <svg viewBox="0 0 1024 1024" width="220" height="220">
+      <defs>
+        <linearGradient id="g2bg" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#1a212b"/>
+          <stop offset="1" stop-color="#0f141b"/>
+        </linearGradient>
+        <linearGradient id="g2folder" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#4FB7F7"/>
+          <stop offset="1" stop-color="#1471D6"/>
+        </linearGradient>
+        <linearGradient id="g2tab" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#6FCBFF"/>
+          <stop offset="1" stop-color="#2A8AEC"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" rx="230" fill="url(#g2bg)"/>
+      <g>
+        <path d="M 180 360 h 280 l 60 60 h 304 a 60 60 0 0 1 60 60 v 280 a 60 60 0 0 1 -60 60 H 180 a 60 60 0 0 1 -60 -60 V 420 a 60 60 0 0 1 60 -60 Z" fill="url(#g2folder)"/>
+        <rect x="180" y="360" width="280" height="60" rx="20" fill="url(#g2tab)"/>
+        <g transform="translate(512 660)">
+          <line x1="-90" y1="-160" x2="-65" y2="-115" stroke="#3DDC84" stroke-width="20" stroke-linecap="round"/>
+          <line x1="90"  y1="-160" x2="65"  y2="-115" stroke="#3DDC84" stroke-width="20" stroke-linecap="round"/>
+          <path d="M -130 -10 a 130 130 0 0 1 260 0 Z" fill="#3DDC84"/>
+          <rect x="-130" y="-10" width="260" height="100" rx="6" fill="#3DDC84"/>
+          <circle cx="-60" cy="-50" r="14" fill="#0f141b"/>
+          <circle cx="60"  cy="-50" r="14" fill="#0f141b"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+  <div class="label">2 · droid in a Finder folder</div>
+  <div class="caption">Macintosh-blue folder with the droid peeking out. Reads as "Android in Finder". Risk: more visual noise at 16 px.</div>
+  <div class="row">
+    <div class="scale"><svg viewBox="0 0 1024 1024" width="32" height="32"><rect width="1024" height="1024" rx="230" fill="#0f141b"/><path d="M 180 360 h 280 l 60 60 h 304 a 60 60 0 0 1 60 60 v 280 a 60 60 0 0 1 -60 60 H 180 a 60 60 0 0 1 -60 -60 V 420 a 60 60 0 0 1 60 -60 Z" fill="#2A8AEC"/></svg></div>
+    <div class="scale small"><svg viewBox="0 0 1024 1024" width="16" height="16"><rect width="1024" height="1024" rx="230" fill="#0f141b"/><path d="M 180 360 h 280 l 60 60 h 304 a 60 60 0 0 1 60 60 v 280 a 60 60 0 0 1 -60 60 H 180 a 60 60 0 0 1 -60 -60 V 420 a 60 60 0 0 1 60 -60 Z" fill="#2A8AEC"/></svg></div>
+  </div>
+  <div class="pick-note">full · 32 · 16 px</div>
+</div>
+
+<!-- 3. monogram FD -->
+<div class="card">
+  <div class="icon-frame">
+    <svg viewBox="0 0 1024 1024" width="220" height="220">
+      <defs>
+        <linearGradient id="g3bg" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#163b2a"/>
+          <stop offset="1" stop-color="#0a1f17"/>
+        </linearGradient>
+        <linearGradient id="g3text" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#FFFFFF"/>
+          <stop offset="1" stop-color="#B2EBC9"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" rx="230" fill="url(#g3bg)"/>
+      <rect width="1024" height="1024" rx="230" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+      <text x="512" y="660" text-anchor="middle" font-family="-apple-system, SF Pro Display, system-ui" font-size="520" font-weight="800" letter-spacing="-30" fill="url(#g3text)">FD</text>
+    </svg>
+  </div>
+  <div class="label">3 · FD monogram</div>
+  <div class="caption">Forest-green squircle with a confident "FD" wordmark. Cleanest at small sizes. Risk: no Android cue at all.</div>
+  <div class="row">
+    <div class="scale"><svg viewBox="0 0 1024 1024" width="32" height="32"><rect width="1024" height="1024" rx="230" fill="#0a1f17"/><text x="512" y="660" text-anchor="middle" font-family="-apple-system" font-size="520" font-weight="800" fill="#fff">FD</text></svg></div>
+    <div class="scale small"><svg viewBox="0 0 1024 1024" width="16" height="16"><rect width="1024" height="1024" rx="230" fill="#0a1f17"/><text x="512" y="660" text-anchor="middle" font-family="-apple-system" font-size="520" font-weight="800" fill="#fff">FD</text></svg></div>
+  </div>
+  <div class="pick-note">full · 32 · 16 px</div>
+</div>
+
+<!-- 4. phone with finder sidebar tab -->
+<div class="card">
+  <div class="icon-frame">
+    <svg viewBox="0 0 1024 1024" width="220" height="220">
+      <defs>
+        <linearGradient id="g4bg" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#1f242d"/>
+          <stop offset="1" stop-color="#0c0f15"/>
+        </linearGradient>
+        <linearGradient id="g4phone" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#3DDC84"/>
+          <stop offset="1" stop-color="#0FB36A"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" rx="230" fill="url(#g4bg)"/>
+      <rect x="320" y="160" width="384" height="704" rx="78" fill="url(#g4phone)"/>
+      <rect x="368" y="220" width="288" height="584" rx="14" fill="#0c0f15"/>
+      <circle cx="512" cy="828" r="18" fill="#0c0f15" stroke="#3DDC84" stroke-width="6"/>
+      <rect x="460" y="178" width="104" height="14" rx="7" fill="#0c0f15"/>
+      <g fill="#3DDC84" opacity="0.85">
+        <rect x="402" y="270" width="220" height="14" rx="3"/>
+        <rect x="402" y="304" width="170" height="14" rx="3"/>
+        <rect x="402" y="338" width="200" height="14" rx="3"/>
+        <rect x="402" y="372" width="140" height="14" rx="3"/>
+      </g>
+    </svg>
+  </div>
+  <div class="label">4 · phone with file list</div>
+  <div class="caption">Green Android phone displaying a Finder-style file list. Tells the whole product story in one frame. Risk: phone shapes are common in app icons.</div>
+  <div class="row">
+    <div class="scale"><svg viewBox="0 0 1024 1024" width="32" height="32"><rect width="1024" height="1024" rx="230" fill="#0c0f15"/><rect x="320" y="160" width="384" height="704" rx="78" fill="#3DDC84"/></svg></div>
+    <div class="scale small"><svg viewBox="0 0 1024 1024" width="16" height="16"><rect width="1024" height="1024" rx="230" fill="#0c0f15"/><rect x="320" y="160" width="384" height="704" rx="78" fill="#3DDC84"/></svg></div>
+  </div>
+  <div class="pick-note">full · 32 · 16 px</div>
+</div>
+
+<!-- 5. minimalist droid head -->
+<div class="card">
+  <div class="icon-frame">
+    <svg viewBox="0 0 1024 1024" width="220" height="220">
+      <defs>
+        <linearGradient id="g5bg" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#FFFFFF"/>
+          <stop offset="1" stop-color="#D8DFE7"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" rx="230" fill="url(#g5bg)"/>
+      <rect width="1024" height="1024" rx="230" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="2"/>
+      <g transform="translate(512 540)">
+        <line x1="-150" y1="-280" x2="-100" y2="-200" stroke="#202833" stroke-width="34" stroke-linecap="round"/>
+        <line x1="150"  y1="-280" x2="100"  y2="-200" stroke="#202833" stroke-width="34" stroke-linecap="round"/>
+        <path d="M -260 0 a 260 260 0 0 1 520 0 Z" fill="#202833"/>
+        <circle cx="-110" cy="-60" r="32" fill="#3DDC84"/>
+        <circle cx="110"  cy="-60" r="32" fill="#3DDC84"/>
+      </g>
+    </svg>
+  </div>
+  <div class="label">5 · droid head on porcelain</div>
+  <div class="caption">Light squircle, dark droid silhouette, glowing green eyes. Confident, very macOS-native, looks at home next to Settings or Finder.</div>
+  <div class="row">
+    <div class="scale"><svg viewBox="0 0 1024 1024" width="32" height="32"><rect width="1024" height="1024" rx="230" fill="#FFFFFF"/><g transform="translate(512 540)"><path d="M -260 0 a 260 260 0 0 1 520 0 Z" fill="#202833"/><circle cx="-110" cy="-60" r="32" fill="#3DDC84"/><circle cx="110" cy="-60" r="32" fill="#3DDC84"/></g></svg></div>
+    <div class="scale small"><svg viewBox="0 0 1024 1024" width="16" height="16"><rect width="1024" height="1024" rx="230" fill="#FFFFFF"/><g transform="translate(512 540)"><path d="M -260 0 a 260 260 0 0 1 520 0 Z" fill="#202833"/></g></svg></div>
+  </div>
+  <div class="pick-note">full · 32 · 16 px</div>
+</div>
+
+<!-- 6. portal -->
+<div class="card">
+  <div class="icon-frame">
+    <svg viewBox="0 0 1024 1024" width="220" height="220">
+      <defs>
+        <radialGradient id="g6bg" cx="0.5" cy="0.4" r="0.7">
+          <stop offset="0" stop-color="#1d2733"/>
+          <stop offset="1" stop-color="#070a0f"/>
+        </radialGradient>
+        <linearGradient id="g6ring" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#3DDC84"/>
+          <stop offset="0.5" stop-color="#34C7F2"/>
+          <stop offset="1" stop-color="#1471D6"/>
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" rx="230" fill="url(#g6bg)"/>
+      <circle cx="512" cy="512" r="260" fill="none" stroke="url(#g6ring)" stroke-width="44"/>
+      <circle cx="512" cy="512" r="180" fill="none" stroke="url(#g6ring)" stroke-width="20" opacity="0.55"/>
+      <g transform="translate(512 540)">
+        <path d="M -120 -10 a 120 120 0 0 1 240 0 Z" fill="#3DDC84"/>
+        <rect x="-120" y="-10" width="240" height="90" rx="6" fill="#3DDC84"/>
+        <circle cx="-55" cy="-45" r="14" fill="#0a0d12"/>
+        <circle cx="55"  cy="-45" r="14" fill="#0a0d12"/>
+      </g>
+    </svg>
+  </div>
+  <div class="label">6 · portal</div>
+  <div class="caption">Aurora ring around a small droid — the droid "comes through" a portal into your Mac. Distinctive, but more abstract.</div>
+  <div class="row">
+    <div class="scale"><svg viewBox="0 0 1024 1024" width="32" height="32"><rect width="1024" height="1024" rx="230" fill="#0a0d12"/><circle cx="512" cy="512" r="260" fill="none" stroke="#3DDC84" stroke-width="44"/></svg></div>
+    <div class="scale small"><svg viewBox="0 0 1024 1024" width="16" height="16"><rect width="1024" height="1024" rx="230" fill="#0a0d12"/><circle cx="512" cy="512" r="260" fill="none" stroke="#3DDC84" stroke-width="44"/></svg></div>
+  </div>
+  <div class="pick-note">full · 32 · 16 px</div>
+</div>
+
+</div>
+</body>
+</html>
