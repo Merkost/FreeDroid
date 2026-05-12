@@ -1,7 +1,7 @@
 import Foundation
 import FreeDroidProviderShared
 
-@objc protocol XPCFileServerProtocol {
+@objc protocol XPCFileServerProtocol: Sendable {
     func send(_ payload: Data) async -> Data
 }
 

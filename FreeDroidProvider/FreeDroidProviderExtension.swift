@@ -1,22 +1,37 @@
 import FileProvider
 import FreeDroidProviderShared
 
-final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtension {
+final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtension, @unchecked Sendable {
     let domain: NSFileProviderDomain
+    let deviceID: DeviceID
+    let bridge = XPCBridge()
 
     required init(domain: NSFileProviderDomain) {
         self.domain = domain
+        self.deviceID = DeviceID(raw: domain.identifier.rawValue)
         super.init()
     }
 
-    func invalidate() {}
+    func invalidate() {
+        Task { await bridge.invalidate() }
+    }
 
     func item(
         for identifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest,
         completionHandler: @escaping (NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
-        completionHandler(nil, NSFileProviderError(.noSuchItem) as NSError)
+        nonisolated(unsafe) let handler = completionHandler
+        Task {
+            do {
+                let item = try await resolveItem(for: identifier)
+                handler(item, nil)
+            } catch let error as TransportError {
+                handler(nil, ProviderError.map(error))
+            } catch {
+                handler(nil, error)
+            }
+        }
         return Progress()
     }
 
@@ -26,7 +41,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         request: NSFileProviderRequest,
         completionHandler: @escaping (URL?, NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
-        completionHandler(nil, nil, NSFileProviderError(.noSuchItem) as NSError)
+        completionHandler(nil, nil, NSFileProviderError(.serverUnreachable) as NSError)
         return Progress()
     }
 
@@ -34,7 +49,13 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         for containerItemIdentifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest
     ) throws -> NSFileProviderEnumerator {
-        throw NSFileProviderError(.noSuchItem)
+        let path = ItemIdentifier.decode(containerItemIdentifier.rawValue) ?? .root
+        return FolderEnumerator(
+            container: containerItemIdentifier,
+            folderPath: path,
+            deviceID: deviceID,
+            bridge: bridge
+        )
     }
 
     func createItem(
@@ -71,5 +92,20 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
     ) -> Progress {
         completionHandler(NSFileProviderError(.noSuchItem) as NSError)
         return Progress()
+    }
+
+    private func resolveItem(for identifier: NSFileProviderItemIdentifier) async throws -> NSFileProviderItem {
+        if identifier == .rootContainer || identifier == .trashContainer {
+            return ProviderItem.root(displayName: domain.displayName)
+        }
+        guard let path = ItemIdentifier.decode(identifier.rawValue) else {
+            throw NSFileProviderError(.noSuchItem)
+        }
+        let entry = try await bridge.send(
+            .stat(deviceID: deviceID, path: path),
+            expecting: RemoteEntry.self
+        )
+        let parent = path.parent ?? .root
+        return ProviderItem(entry: entry, parent: parent)
     }
 }

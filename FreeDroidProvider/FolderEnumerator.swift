@@ -2,7 +2,7 @@ import FileProvider
 import Foundation
 import FreeDroidProviderShared
 
-final class FolderEnumerator: NSObject, NSFileProviderEnumerator {
+final class FolderEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     private let containerIdentifier: NSFileProviderItemIdentifier
     private let folderPath: RemotePath
     private let deviceID: DeviceID
@@ -24,6 +24,7 @@ final class FolderEnumerator: NSObject, NSFileProviderEnumerator {
     func invalidate() {}
 
     func enumerateItems(for observer: NSFileProviderEnumerationObserver, startingAt page: NSFileProviderPage) {
+        nonisolated(unsafe) let obs = observer
         Task {
             do {
                 let entries = try await bridge.send(
@@ -33,12 +34,12 @@ final class FolderEnumerator: NSObject, NSFileProviderEnumerator {
                 let items: [NSFileProviderItem] = entries.map {
                     ProviderItem(entry: $0, parent: folderPath)
                 }
-                observer.didEnumerate(items)
-                observer.finishEnumerating(upTo: nil)
+                obs.didEnumerate(items)
+                obs.finishEnumerating(upTo: nil)
             } catch let error as TransportError {
-                observer.finishEnumeratingWithError(ProviderError.map(error))
+                obs.finishEnumeratingWithError(ProviderError.map(error))
             } catch {
-                observer.finishEnumeratingWithError(error)
+                obs.finishEnumeratingWithError(error)
             }
         }
     }
