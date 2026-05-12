@@ -2,27 +2,48 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-    <key>CFBundleName</key>
-    <string>FreeDroidFS</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$(MARKETING_VERSION)</string>
-    <key>CFBundleVersion</key>
-    <string>$(CURRENT_PROJECT_VERSION)</string>
-    <key>CFBundlePackageType</key>
-    <string>BNDL</string>
-    <key>NSExtension</key>
-    <dict>
-        <key>NSExtensionAttributes</key>
-        <dict>
-            <key>FSModuleType</key>
-            <string>com.apple.fskit.fsmodule</string>
-        </dict>
-        <key>NSExtensionPointIdentifier</key>
-        <string>com.apple.fskit.fsmodule</string>
-        <key>NSExtensionPrincipalClass</key>
-        <string>$(PRODUCT_MODULE_NAME).FreeDroidFSModule</string>
-    </dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>FreeDroid Android File System</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>FreeDroidFS</string>
+	<key>CFBundlePackageType</key>
+	<string>XPC!</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.1</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.4</string>
+	<key>EXAppExtensionAttributes</key>
+	<dict>
+		<key>EXExtensionPointIdentifier</key>
+		<string>com.apple.fskit.fsmodule</string>
+		<key>EXExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).FreeDroidFSModule</string>
+		<key>FSShortName</key>
+		<string>freedroid</string>
+		<key>FSSupportsServerURLs</key>
+		<true/>
+		<key>FSSupportsBlockResources</key>
+		<false/>
+		<key>FSPersonalities</key>
+		<dict>
+			<key>FreeDroid</key>
+			<dict>
+				<key>FSName</key>
+				<string>FreeDroid Android</string>
+				<key>FSSubType</key>
+				<integer>0</integer>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

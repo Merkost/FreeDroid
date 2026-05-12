@@ -5,6 +5,7 @@ import os.log
 
 private let logger = Logger(subsystem: "com.merkost.freedroid.FreeDroidFS", category: "module")
 
+@objc(FreeDroidFSModule)
 final class FreeDroidFSModule: FSUnaryFileSystem, FSUnaryFileSystemOperations {
     let client = XPCClient()
 

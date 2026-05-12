@@ -4,7 +4,9 @@
 
 **Goal:** Take `FreeDroidFS` from "compiles, bundle produced, mount stubbed" (current state from Plan #10) to "Android devices appear as real volumes in Finder with read/write/list/rename/delete working end-to-end." Includes: securing the FSKit entitlement, fleshing out every FSKit operation against real Apple APIs, hardening the XPC bridge, adding FSItem caching for Finder responsiveness, real-device manual verification scripts, and a fallback path if Apple denies the entitlement.
 
-**Architecture:** No structural changes to the codebase shape. The two-process model from Plan #10 stays (`FreeDroid.app` ↔ `FreeDroidFS.fskitmodule` over XPC). What changes is the inside of every FSKit callback — from skeletal pass-through to a complete, cache-aware, errno-correct implementation. Plus the entitlement, signing, and verification scaffolding to actually load it on real hardware.
+**Architecture:** No structural changes to the codebase shape. The two-process model from Plan #10 stays (`FreeDroid.app` ↔ `FreeDroidFS.appex` over XPC). What changes is the inside of every FSKit callback — from skeletal pass-through to a complete, cache-aware, errno-correct implementation. Plus the entitlement, signing, and verification scaffolding to actually load it on real hardware.
+
+> **Bundle format note (updated 2026-05-12):** `FreeDroidFS` is built as an **ExtensionKit `.appex`** bundle (`type: extensionkit-extension` in XcodeGen), not a legacy `.fskitmodule` plug-in bundle. Apple's FSKit extensions on macOS 15.4+ use `CFBundlePackageType = XPC!`, a top-level `EXAppExtensionAttributes` dict (not `NSExtension`), and an `mh_execute` Mach-O. The `.appex` is embedded in `FreeDroid.app/Contents/Extensions/` where `fskitd` / PluginKit discovers it.
 
 **Tech Stack:** FSKit (macOS 15.4+), XPC via `NSXPCConnection`, IOKit, real Android device for verification.
 
@@ -558,16 +560,23 @@ Make `probeResource(resource:)` actually inspect `resource.url` and decide wheth
 
 - [ ] **Step 3: Register URL scheme in extension Info.plist**
 
-`FreeDroidFS/Info.plist` — add:
+`FreeDroidFS/Info.plist` now uses `EXAppExtensionAttributes` (ExtensionKit format, not `NSExtension`). Add `FSResourceSchemes` inside the `EXAppExtensionAttributes` dict:
 
 ```xml
-<key>FSResourceSchemes</key>
-<array>
-    <string>freedroid</string>
-</array>
+<key>EXAppExtensionAttributes</key>
+<dict>
+    <!-- existing keys: EXExtensionPointIdentifier, EXExtensionPrincipalClass,
+         FSShortName, FSSupportsServerURLs, FSSupportsBlockResources, FSPersonalities -->
+    <key>FSResourceSchemes</key>
+    <array>
+        <string>freedroid</string>
+    </array>
+</dict>
 ```
 
 (Exact key name may differ — verify against FSKit headers. The intent: the extension declares which `FSResource` URL schemes it can `probe` and `load`.)
+
+> **Bundle structure reminder:** The target is `type: extensionkit-extension` in `project.yml`. Xcode sets `WRAPPER_EXTENSION = appex`, `PRODUCT_BUNDLE_PACKAGE_TYPE = XPC!`, and `MACH_O_TYPE = mh_execute` automatically. The `.appex` lands in `FreeDroid.app/Contents/Extensions/` (not `Contents/PlugIns/` or `Contents/Resources/`), which is where `fskitd` and PluginKit scan.
 
 - [ ] **Step 4: Build and commit**
 
@@ -698,7 +707,7 @@ codesign --force --deep --sign - \
     --entitlements "$REPO_ROOT/FreeDroid/FreeDroid.entitlements" \
     "$APP_PATH"
 
-EXT_PATH="$APP_PATH/Contents/PlugIns/FreeDroidFS.fskitmodule"
+EXT_PATH="$APP_PATH/Contents/Extensions/FreeDroidFS.appex"
 codesign --force --sign - \
     --entitlements "$REPO_ROOT/FreeDroidFS/FreeDroidFS.entitlements" \
     "$EXT_PATH"
@@ -890,7 +899,7 @@ If specific devices misbehave, add entries to `docs/mtp-quirks.md` (or `docs/fsk
 ## Done When
 
 - `com.apple.developer.fskit.fsmodule` entitlement granted and embedded.
-- Signed/notarized build of `FreeDroid.app` containing `FreeDroidFS.fskitmodule`.
+- Signed/notarized build of `FreeDroid.app` containing `FreeDroidFS.appex` at `Contents/Extensions/`.
 - Plugging an authorized Android phone results in `/Volumes/<device>` appearing in Finder within 3 seconds.
 - Read, write, list, rename, delete all functional from Finder.
 - Trash semantics: deletes land in `.FreeDroid/Trash` and auto-purge after 24h.

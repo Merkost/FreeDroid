@@ -73,7 +73,7 @@ targets:
         codeSign: true
 
   FreeDroidFS:
-    type: bundle
+    type: extensionkit-extension
     platform: macOS
     deploymentTarget: "15.4"
     sources:
@@ -91,11 +91,9 @@ targets:
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         SKIP_INSTALL: YES
-        WRAPPER_EXTENSION: fskitmodule
         PRODUCT_NAME: FreeDroidFS
-        MACH_O_TYPE: mh_bundle
         MACOSX_DEPLOYMENT_TARGET: "15.4"
-        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
     dependencies:
       - package: FreeDroidPackages
         product: FreeDroidDomain
