@@ -52,15 +52,20 @@ actor ProviderTransport {
     }
 
     func fetch(_ path: RemotePath, into destination: URL) async throws {
-        _ = try await send(
-            .fetchToFile(deviceID: deviceID, path: path, destination: destination.path),
+        let data = try await send(
+            .fetchData(deviceID: deviceID, path: path),
             expecting: Data.self
         )
+        let parent = destination.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: destination)
+        try data.write(to: destination)
     }
 
     func upload(from source: URL, to path: RemotePath) async throws {
+        let data = try Data(contentsOf: source)
         _ = try await send(
-            .uploadFromFile(deviceID: deviceID, source: source.path, path: path),
+            .uploadData(deviceID: deviceID, path: path, data: data),
             expecting: Data.self
         )
     }

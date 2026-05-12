@@ -20,8 +20,8 @@ public enum IPCEndpoint {
     }
 
     public static func transferDirectory() -> URL {
-        let base = groupContainerURL()?.appendingPathComponent("Transfers", isDirectory: true)
-            ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent("FreeDroidTransfers", isDirectory: true)
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FreeDroidTransfers", isDirectory: true)
         try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         return base
     }

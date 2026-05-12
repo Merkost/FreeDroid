@@ -87,13 +87,21 @@ actor BridgeHandler {
             if let parent = from.parent { invalidateListing(deviceID: deviceID, path: parent) }
             if let parent = to.parent { invalidateListing(deviceID: deviceID, path: parent) }
             return .empty
-        case let .fetchToFile(deviceID, path, destination):
+        case let .fetchData(deviceID, path):
+            let staging = FileManager.default.temporaryDirectory
+                .appendingPathComponent("freedroid-bridge-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: staging) }
             _ = try await sessions.session(for: deviceID.raw)
-                .fetch(path, into: URL(fileURLWithPath: destination), progress: nil)
-            return .empty
-        case let .uploadFromFile(deviceID, source, path):
+                .fetch(path, into: staging, progress: nil)
+            let data = try Data(contentsOf: staging)
+            return .data(data)
+        case let .uploadData(deviceID, path, data):
+            let staging = FileManager.default.temporaryDirectory
+                .appendingPathComponent("freedroid-bridge-\(UUID().uuidString)")
+            try data.write(to: staging)
+            defer { try? FileManager.default.removeItem(at: staging) }
             _ = try await sessions.session(for: deviceID.raw)
-                .upload(from: URL(fileURLWithPath: source), to: path, progress: nil)
+                .upload(from: staging, to: path, progress: nil)
             if let parent = path.parent { invalidateListing(deviceID: deviceID, path: parent) }
             return .empty
         }
