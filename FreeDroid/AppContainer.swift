@@ -30,6 +30,8 @@ final class AppContainer {
     let transfersViewModel: TransfersViewModel
     let transferToastPresenter = TransferToastPresenter()
 
+    let xpcRegistry = XPCConnectionRegistry()
+
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
         do {
@@ -88,5 +90,6 @@ final class AppContainer {
 
     func start() async {
         try? await registry.start()
+        xpcRegistry.start(registry: registry)
     }
 }
