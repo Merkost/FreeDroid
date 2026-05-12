@@ -5,6 +5,7 @@ import FreeDroidData
 import FreeDroidADB
 import FreeDroidMTP
 import DeviceManagement
+import FileBrowser
 
 @MainActor
 @Observable
@@ -41,6 +42,16 @@ final class AppContainer {
         )
         self.deviceRepository = DeviceRepositoryImpl(registry: registry)
         self.deviceListViewModel = DeviceListViewModel(repository: deviceRepository)
+    }
+
+    func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {
+        let fileRepo = FileRepositoryImpl(registry: registry, cache: listingCache, deviceID: deviceID)
+        return FileBrowserViewModel(
+            browseFolder: BrowseFolderUseCase(fileRepository: fileRepo),
+            renameFile: RenameFileUseCase(fileRepository: fileRepo),
+            deleteFiles: DeleteFilesUseCase(fileRepository: fileRepo),
+            createFolder: CreateFolderUseCase(fileRepository: fileRepo)
+        )
     }
 
     func start() async {

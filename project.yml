@@ -29,6 +29,8 @@ packages:
     path: Packages/FreeDroidData
   DeviceManagement:
     path: Packages/Features/DeviceManagement
+  FileBrowser:
+    path: Packages/Features/FileBrowser
 
 targets:
   FreeDroid:
@@ -63,3 +65,5 @@ targets:
         product: FreeDroidData
       - package: DeviceManagement
         product: DeviceManagement
+      - package: FileBrowser
+        product: FileBrowser
