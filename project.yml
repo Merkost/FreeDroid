@@ -132,6 +132,9 @@ targets:
     dependencies:
       - package: FreeDroidPackages
         product: FreeDroidProviderShared
+      - target: FreeDroidBridge
+        embed: true
+        codeSign: true
 
 schemes:
   FreeDroid:

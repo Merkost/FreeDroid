@@ -33,8 +33,9 @@ final class ProviderDomainCoordinator {
     }
 
     private func reconcile(_ devices: [Device]) async {
-        let readyIDs = Set(devices.filter { $0.connectionState == .ready }.map(\.id))
-        for device in devices where device.connectionState == .ready {
+        let supported = devices.filter { $0.connectionState == .ready && $0.transport == .adb }
+        let readyIDs = Set(supported.map(\.id))
+        for device in supported {
             await addIfNeeded(device)
         }
         for id in active.subtracting(readyIDs) {

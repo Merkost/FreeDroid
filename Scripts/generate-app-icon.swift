@@ -31,26 +31,15 @@ let iconEntries: [IconEntry] = [
 
 struct AppIconView: View {
     let canvasSize: CGFloat
+    private var s: CGFloat { canvasSize / 1024.0 }
 
-    private var headDiameter: CGFloat { canvasSize * 0.60 }
-    private var headRadius: CGFloat { headDiameter / 2 }
-    private var droidBodyHeight: CGFloat { headDiameter * 0.55 }
-    private var droidCenterX: CGFloat { canvasSize / 2 }
-    private var droidCenterY: CGFloat { canvasSize / 2 }
-    private var headCenterY: CGFloat { droidCenterY - droidBodyHeight / 2 }
-    private var bodyTopY: CGFloat { headCenterY }
-    private var bodyBottomY: CGFloat { headCenterY + droidBodyHeight }
-
-    private var antennaWidth: CGFloat { max(2, headDiameter * 0.06) }
-    private var antennaLength: CGFloat { headDiameter * 0.25 }
-    private var antennaSpacing: CGFloat { headDiameter * 0.30 }
-
-    private var eyeRadius: CGFloat { max(1.5, headDiameter * 0.075) }
-    private var eyeSpacing: CGFloat { headDiameter * 0.25 }
-    private var eyeY: CGFloat { headCenterY - headRadius * 0.20 }
-
-    private var shadowRadius: CGFloat { max(4, canvasSize * 0.030) }
-    private var shadowYOffset: CGFloat { canvasSize * 0.016 }
+    private var backgroundGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(red: 0.102, green: 0.129, blue: 0.169), Color(red: 0.059, green: 0.078, blue: 0.106)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
 
     private var droidGradient: LinearGradient {
         LinearGradient(
@@ -60,154 +49,85 @@ struct AppIconView: View {
         )
     }
 
-    private var backgroundGradient: LinearGradient {
-        LinearGradient(
-            colors: [Color(red: 0.10, green: 0.13, blue: 0.18), Color(red: 0.06, green: 0.08, blue: 0.11)],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    private var shadowColor: Color {
-        Color(red: 0.059, green: 0.702, blue: 0.416).opacity(0.35)
-    }
-
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: canvasSize * 0.225, style: .continuous)
+            RoundedRectangle(cornerRadius: 230 * s, style: .continuous)
                 .fill(backgroundGradient)
 
-            RoundedRectangle(cornerRadius: canvasSize * 0.225, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.06), Color.clear],
-                        startPoint: UnitPoint(x: 0.5, y: 0),
-                        endPoint: UnitPoint(x: 0.5, y: 0.4)
-                    )
-                )
+            RoundedRectangle(cornerRadius: 230 * s, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.06), lineWidth: max(0.5, 2 * s))
 
-            RoundedRectangle(cornerRadius: canvasSize * 0.225, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.06), lineWidth: max(1, canvasSize * 0.003))
+            AntennaeShape()
+                .stroke(droidGradient, style: StrokeStyle(lineWidth: 32 * s, lineCap: .round))
 
-            DroidShape(
-                headRadius: headRadius,
-                droidCenterX: droidCenterX,
-                headCenterY: headCenterY,
-                bodyTopY: bodyTopY,
-                bodyBottomY: bodyBottomY
-            )
-            .fill(shadowColor)
-            .blur(radius: shadowRadius)
-            .offset(y: shadowYOffset)
+            HeadAndBodyShape()
+                .fill(droidGradient)
 
-            DroidShape(
-                headRadius: headRadius,
-                droidCenterX: droidCenterX,
-                headCenterY: headCenterY,
-                bodyTopY: bodyTopY,
-                bodyBottomY: bodyBottomY
-            )
-            .fill(droidGradient)
-
-            AntennaShape(
-                droidCenterX: droidCenterX,
-                headCenterY: headCenterY,
-                headRadius: headRadius,
-                antennaSpacing: antennaSpacing,
-                antennaLength: antennaLength,
-                antennaWidth: antennaWidth
-            )
-            .fill(droidGradient)
-
-            Circle()
-                .fill(Color(red: 0.10, green: 0.13, blue: 0.18).opacity(0.92))
-                .frame(width: eyeRadius * 2, height: eyeRadius * 2)
-                .position(x: droidCenterX - eyeSpacing / 2, y: eyeY)
-
-            Circle()
-                .fill(Color(red: 0.10, green: 0.13, blue: 0.18).opacity(0.92))
-                .frame(width: eyeRadius * 2, height: eyeRadius * 2)
-                .position(x: droidCenterX + eyeSpacing / 2, y: eyeY)
+            EyesShape()
+                .fill(Color(red: 0.059, green: 0.078, blue: 0.106))
         }
         .frame(width: canvasSize, height: canvasSize)
     }
-}
 
-struct DroidShape: Shape {
-    let headRadius: CGFloat
-    let droidCenterX: CGFloat
-    let headCenterY: CGFloat
-    let bodyTopY: CGFloat
-    let bodyBottomY: CGFloat
-
-    func path(in _: CGRect) -> Path {
-        var p = Path()
-        let bodyLeft = droidCenterX - headRadius
-        let bodyRight = droidCenterX + headRadius
-        let bodyCorner = max(2, headRadius * 0.12)
-
-        p.move(to: CGPoint(x: bodyLeft, y: bodyTopY))
-        p.addLine(to: CGPoint(x: bodyLeft, y: bodyBottomY - bodyCorner))
-        p.addQuadCurve(
-            to: CGPoint(x: bodyLeft + bodyCorner, y: bodyBottomY),
-            control: CGPoint(x: bodyLeft, y: bodyBottomY)
-        )
-        p.addLine(to: CGPoint(x: bodyRight - bodyCorner, y: bodyBottomY))
-        p.addQuadCurve(
-            to: CGPoint(x: bodyRight, y: bodyBottomY - bodyCorner),
-            control: CGPoint(x: bodyRight, y: bodyBottomY)
-        )
-        p.addLine(to: CGPoint(x: bodyRight, y: bodyTopY))
-
-        p.addArc(
-            center: CGPoint(x: droidCenterX, y: headCenterY),
-            radius: headRadius,
-            startAngle: .degrees(0),
-            endAngle: .degrees(180),
-            clockwise: false
-        )
-        p.closeSubpath()
-        return p
+    private struct AntennaeShape: Shape {
+        func path(in rect: CGRect) -> Path {
+            let s = rect.width / 1024.0
+            let cx = rect.midX
+            let cy = rect.midY
+            var p = Path()
+            p.move(to: CGPoint(x: cx - 160 * s, y: cy - 310 * s))
+            p.addLine(to: CGPoint(x: cx - 110 * s, y: cy - 220 * s))
+            p.move(to: CGPoint(x: cx + 160 * s, y: cy - 310 * s))
+            p.addLine(to: CGPoint(x: cx + 110 * s, y: cy - 220 * s))
+            return p
+        }
     }
-}
 
-struct AntennaShape: Shape {
-    let droidCenterX: CGFloat
-    let headCenterY: CGFloat
-    let headRadius: CGFloat
-    let antennaSpacing: CGFloat
-    let antennaLength: CGFloat
-    let antennaWidth: CGFloat
+    private struct HeadAndBodyShape: Shape {
+        func path(in rect: CGRect) -> Path {
+            let s = rect.width / 1024.0
+            let cx = rect.midX
+            let cy = rect.midY
+            var p = Path()
+            p.move(to: CGPoint(x: cx - 260 * s, y: cy))
+            p.addArc(
+                center: CGPoint(x: cx, y: cy),
+                radius: 260 * s,
+                startAngle: .degrees(180),
+                endAngle: .degrees(0),
+                clockwise: false
+            )
+            p.addLine(to: CGPoint(x: cx + 260 * s, y: cy + 170 * s))
+            p.addArc(
+                center: CGPoint(x: cx + 250 * s, y: cy + 170 * s),
+                radius: 10 * s,
+                startAngle: .degrees(0),
+                endAngle: .degrees(90),
+                clockwise: false
+            )
+            p.addLine(to: CGPoint(x: cx - 250 * s, y: cy + 180 * s))
+            p.addArc(
+                center: CGPoint(x: cx - 250 * s, y: cy + 170 * s),
+                radius: 10 * s,
+                startAngle: .degrees(90),
+                endAngle: .degrees(180),
+                clockwise: false
+            )
+            p.closeSubpath()
+            return p
+        }
+    }
 
-    func path(in _: CGRect) -> Path {
-        var p = Path()
-
-        let leftBaseX = droidCenterX - antennaSpacing / 2
-        let rightBaseX = droidCenterX + antennaSpacing / 2
-        let baseY = headCenterY - headRadius
-
-        let leftAngleRad = -15.0 * Double.pi / 180.0
-        let rightAngleRad = 15.0 * Double.pi / 180.0
-        let leftDX = CGFloat(antennaLength * sin(leftAngleRad))
-        let leftDY = CGFloat(antennaLength * cos(leftAngleRad))
-        let rightDX = CGFloat(antennaLength * sin(rightAngleRad))
-        let rightDY = CGFloat(antennaLength * cos(rightAngleRad))
-
-        let halfW = antennaWidth / 2
-
-        p.move(to: CGPoint(x: leftBaseX - halfW, y: baseY))
-        p.addLine(to: CGPoint(x: leftBaseX - halfW + leftDX, y: baseY - leftDY))
-        p.addLine(to: CGPoint(x: leftBaseX + halfW + leftDX, y: baseY - leftDY))
-        p.addLine(to: CGPoint(x: leftBaseX + halfW, y: baseY))
-        p.closeSubpath()
-
-        p.move(to: CGPoint(x: rightBaseX - halfW, y: baseY))
-        p.addLine(to: CGPoint(x: rightBaseX - halfW + rightDX, y: baseY - rightDY))
-        p.addLine(to: CGPoint(x: rightBaseX + halfW + rightDX, y: baseY - rightDY))
-        p.addLine(to: CGPoint(x: rightBaseX + halfW, y: baseY))
-        p.closeSubpath()
-
-        return p
+    private struct EyesShape: Shape {
+        func path(in rect: CGRect) -> Path {
+            let s = rect.width / 1024.0
+            let cx = rect.midX
+            let cy = rect.midY
+            var p = Path()
+            p.addEllipse(in: CGRect(x: cx - 110 * s - 28 * s, y: cy - 60 * s - 28 * s, width: 56 * s, height: 56 * s))
+            p.addEllipse(in: CGRect(x: cx + 110 * s - 28 * s, y: cy - 60 * s - 28 * s, width: 56 * s, height: 56 * s))
+            return p
+        }
     }
 }
 
@@ -247,15 +167,13 @@ func run() {
 
     for entry in iconEntries {
         let cgImage = renderIcon(size: entry.size)
-        let url = outputDir.appendingPathComponent(entry.filename)
-        savePNG(cgImage: cgImage, to: url)
-        print("Generated \(entry.filename) (\(entry.size)x\(entry.size))")
+        let destination = outputDir.appendingPathComponent(entry.filename)
+        savePNG(cgImage: cgImage, to: destination)
+        print("Wrote \(entry.filename) (\(entry.size)x\(entry.size))")
     }
-
-    print("Done. Icons written to \(outputDir.path)")
 }
 
-Task { @MainActor in
+DispatchQueue.main.async {
     run()
     exit(0)
 }

@@ -47,24 +47,33 @@ public struct FileInspectorView: View {
 
     @ViewBuilder
     private var previewContent: some View {
-        if viewModel.inspectorIsPreparing {
-            Spinner(size: 24)
-        } else if let url = viewModel.inspectorPreviewURL, let image = NSImage(contentsOf: url) {
-            Image(nsImage: image)
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+        if QuickLookEligibility.isInlinePreviewable(entry.name) {
+            if viewModel.inspectorIsPreparing {
+                Spinner(size: 24)
+            } else if let url = viewModel.inspectorPreviewURL, let image = NSImage(contentsOf: url) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+            } else {
+                fileGlyph
+            }
         } else {
-            VStack(spacing: Spacing.sm) {
-                Image(systemName: FileIconResolver.symbol(for: entry))
-                    .font(.system(size: 56, weight: .light))
+            fileGlyph
+        }
+    }
+
+    private var fileGlyph: some View {
+        VStack(spacing: Spacing.sm) {
+            Image(systemName: FileIconResolver.symbol(for: entry))
+                .font(.system(size: 56, weight: .light))
+                .foregroundStyle(theme.colors.text2)
+            if !QuickLookEligibility.isInlinePreviewable(entry.name) {
+                Text("Use Open to view in the default macOS app")
+                    .font(Typography.caption)
                     .foregroundStyle(theme.colors.text2)
-                if !QuickLookEligibility.isInlinePreviewable(entry.name) {
-                    Text("No inline preview")
-                        .font(Typography.caption)
-                        .foregroundStyle(theme.colors.text2)
-                }
+                    .multilineTextAlignment(.center)
             }
         }
     }
@@ -98,11 +107,19 @@ public struct FileInspectorView: View {
                     }
                 }
             } label: {
-                Label("Open", systemImage: "arrow.up.right.square")
-                    .frame(maxWidth: .infinity)
+                HStack(spacing: Spacing.xs) {
+                    if viewModel.inspectorIsPreparing && !QuickLookEligibility.isInlinePreviewable(entry.name) {
+                        ProgressView().controlSize(.mini).tint(.white)
+                        Text("Opening…").frame(maxWidth: .infinity)
+                    } else {
+                        Label("Open", systemImage: "arrow.up.right.square")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
             }
             .buttonStyle(.borderedProminent)
             .tint(theme.colors.accent)
+            .disabled(viewModel.inspectorIsPreparing)
 
             Button {
                 revealInFinder()
