@@ -119,23 +119,31 @@ FreeDroid.xcworkspace
     ├── FreeDroidMTP/                   libmtp wrapper, USB session management
     ├── FreeDroidIPC/                   XPC contracts between app and FSKit extension
     └── Features/
-        ├── DeviceManagement/           Domain + Data + Presentation slice
-        ├── FileBrowser/                Domain + Data + Presentation slice
-        ├── Gallery/                    Domain + Data + Presentation slice
-        └── Transfer/                   Domain + Data + Presentation slice
+        ├── DeviceManagement/           feature-specific UseCases + ViewModels + Views
+        ├── FileBrowser/                feature-specific UseCases + ViewModels + Views
+        ├── Gallery/                    feature-specific UseCases + ViewModels + Views
+        └── Transfer/                   feature-specific UseCases + ViewModels + Views
 ```
+
+**What goes where (resolves the layering question):**
+
+- **`FreeDroidDomain`** owns shared entities, the universal protocols (`FileRepository`, `MediaRepository`, `TransferRepository`, `DeviceRepository`, `Transport`, `MountStrategy`), and cross-cutting UseCases.
+- **`FreeDroidData`** owns shared infrastructure: USB watcher, repository implementations, caches, the composition glue that adapts transports to repositories. Features never re-implement these.
+- **`Features/*`** are presentation-thick slices: feature-specific UseCases (e.g., `PairDeviceUseCase` for DeviceManagement), `@Observable` ViewModels, and SwiftUI Views. They consume the shared repositories from `FreeDroidData` via the protocols in `FreeDroidDomain` — they never create their own repository implementations.
 
 **Dependency graph (strictly enforced):**
 
 ```
 FreeDroid.app       → Features, UI, Data, IPC
 FreeDroidFS         → Domain, IPC
-Features/*          → Domain, UI, Data
+Features/*          → Domain, UI                  (no direct dep on Data — wired by app)
 Data                → Domain, ADB, MTP
 ADB, MTP            → Domain
 UI                  → (nothing — leaf)
 Domain, IPC         → (nothing — leaves)
 ```
+
+Features depend only on Domain protocols; the app target wires concrete Data implementations into Feature ViewModels at composition time. This keeps Features unit-testable without pulling Data into their build graph.
 
 ### 4.4 Mount strategy abstraction
 
@@ -204,6 +212,72 @@ public struct TransferJob: Identifiable, Sendable {
 }
 
 public enum Direction: Sendable { case toMac, toDevice }
+```
+
+> `TransportKind` includes `.wifi` for forward compatibility only; v1.0 ships ADB + MTP. Adding `.wifi` later requires a new `Transport` implementation, not a domain change.
+
+**Supporting types referenced in this spec** (all defined in `FreeDroidDomain`):
+
+```swift
+public struct DeviceInfo: Sendable {
+    public let serial: String
+    public let manufacturer: String
+    public let model: String
+    public let androidVersion: String?
+    public let storageCapacityBytes: Int64?
+    public let storageFreeBytes: Int64?
+}
+
+public struct MediaPage: Sendable {
+    public let items: [MediaItem]
+    public let hasMore: Bool
+    public let nextPage: Int?
+}
+
+public enum ThumbnailSize: Sendable { case small, medium, large }
+
+public struct TransferProgress: Sendable {
+    public let jobID: UUID
+    public let completedBytes: Int64
+    public let totalBytes: Int64
+    public let currentItem: RemotePath?
+    public let bytesPerSecond: Double
+}
+
+public enum TransferState: Sendable {
+    case idle
+    case running(TransferProgress)
+    case paused(TransferProgress)
+    case completed
+    case failed(TransportError)
+}
+
+public struct MountCapabilities: Sendable {
+    public let supportsTrueMount: Bool
+    public let supportsWriteOps: Bool
+    public let appearsInFinderSidebar: Bool
+}
+
+public struct MountedVolume: Sendable {
+    public let deviceID: DeviceID
+    public let mountURL: URL
+    public let strategyKind: MountStrategyKind
+}
+
+public enum MountStrategyKind: Sendable { case fskit, fileProvider, mock }
+
+public struct UserFacingError: Sendable {
+    public let title: String
+    public let message: String
+    public let recoveryAction: RecoveryAction?
+}
+
+public enum RecoveryAction: Sendable {
+    case retry
+    case openSettings
+    case authorizeOnDevice
+    case contactSupport
+}
 ```
 
 ### 5.2 Repository protocols (Domain layer)
@@ -362,7 +436,7 @@ Light and dark themes share **identical layout, motion, and components**; only c
 
 | Moment | Implementation |
 |---|---|
-| **Living device ring** | `TimelineView` + `Canvas`; 3.2s breathe cycle when idle, fast spin during transfer. Color encodes transport (green=ADB, blue=MTP, purple=Wi-Fi). |
+| **Living device ring** | `TimelineView` + `Canvas`; 3.2s breathe cycle when idle, fast spin during transfer. Color encodes transport (green=ADB, blue=MTP; purple reserved for Wi-Fi when added post-v1). |
 | **Liquid transfer fill** | Metal shader filling the device card vertically from 0 to 100%, no modal dialog. |
 | **Spatial photo grid** | Custom `MasonryLayout` implementing SwiftUI's `Layout` protocol; spring entry, hover parallax tilt, `matchedGeometryEffect` zoom on tap. |
 | **Sidebar flow transitions** | Scale + opacity slide on view switches (no hard cuts). |
@@ -401,7 +475,8 @@ All motion goes through `Motion.swift` presets — no raw `.animation(.default)`
 | `TransferQueue` (per device) | Active and pending transfer jobs |
 | `ListingCache` (global) | Directory listing LRU |
 | `ThumbnailCache` (global) | Disk-backed thumbnail cache |
-| `XPCServer` | FSKit ↔ app bridge |
+| `XPCServer` (in app) | Hosts the Mach service; serves FSKit extension calls |
+| `XPCClient` (in extension) | Calls into the app from the FSKit extension |
 
 ### 9.2 Reactive streams
 
