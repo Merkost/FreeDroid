@@ -13,6 +13,7 @@ public actor ADBSession: Transport {
     private let serial: String
     private let server: ADBServer
     private var cachedInfo: DeviceInfo?
+    private var cachedZstd: Bool?
 
     public init(deviceID: DeviceID, serial: String, server: ADBServer) {
         self.deviceID = deviceID
@@ -101,8 +102,9 @@ public actor ADBSession: Transport {
     public func fetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
         let runner = await server.runner(for: serial)
         try? FileManager.default.removeItem(at: destination)
+        let compressed = await zstdEnabled()
         _ = try await runner.run(
-            .pull(serial: serial, remote: path.raw, local: destination.path),
+            .pull(serial: serial, remote: path.raw, local: destination.path, compressed: compressed),
             timeout: .seconds(600)
         )
         let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
@@ -113,8 +115,9 @@ public actor ADBSession: Transport {
     public func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
         let runner = await server.runner(for: serial)
         let size = (try? FileManager.default.attributesOfItem(atPath: source.path)[.size] as? NSNumber)?.int64Value ?? 0
+        let compressed = await zstdEnabled()
         _ = try await runner.run(
-            .push(serial: serial, local: source.path, remote: path.raw),
+            .push(serial: serial, local: source.path, remote: path.raw, compressed: compressed),
             timeout: .seconds(600)
         )
         progress?.report(bytesTransferred: size, totalBytes: size)
@@ -124,8 +127,12 @@ public actor ADBSession: Transport {
     public func read(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
         let temp = ADBFileSync.tempLocalPath()
         defer { try? FileManager.default.removeItem(at: temp) }
+        let compressed = await zstdEnabled()
         let runner = await server.runner(for: serial)
-        _ = try await runner.run(.pull(serial: serial, remote: path.raw, local: temp.path), timeout: .seconds(120))
+        _ = try await runner.run(
+            .pull(serial: serial, remote: path.raw, local: temp.path, compressed: compressed),
+            timeout: .seconds(120)
+        )
         let data = try Data(contentsOf: temp)
         let start = Int(offset)
         let end = min(start + length, data.count)
@@ -140,8 +147,12 @@ public actor ADBSession: Transport {
         let temp = ADBFileSync.tempLocalPath()
         try data.write(to: temp)
         defer { try? FileManager.default.removeItem(at: temp) }
+        let compressed = await zstdEnabled()
         let runner = await server.runner(for: serial)
-        _ = try await runner.run(.push(serial: serial, local: temp.path, remote: path.raw), timeout: .seconds(300))
+        _ = try await runner.run(
+            .push(serial: serial, local: temp.path, remote: path.raw, compressed: compressed),
+            timeout: .seconds(300)
+        )
     }
 
     public func mkdir(_ path: RemotePath) async throws {
@@ -162,8 +173,17 @@ public actor ADBSession: Transport {
         )
     }
 
+    private func zstdEnabled() async -> Bool {
+        if let cached = cachedZstd { return cached }
+        let result = (try? await server.features()) ?? []
+        let enabled = result.contains("zstd_decompress") && result.contains("zstd_compress")
+        cachedZstd = enabled
+        return enabled
+    }
+
     public func close() async {
         cachedInfo = nil
+        cachedZstd = nil
     }
 
     private func escape(_ path: String) -> String {

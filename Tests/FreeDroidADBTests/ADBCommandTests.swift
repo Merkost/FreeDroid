@@ -49,4 +49,28 @@ struct ADBCommandTests {
         let cmd = ADBCommand.disconnect(host: "192.168.1.5", port: 5555)
         #expect(cmd.arguments == ["disconnect", "192.168.1.5:5555"])
     }
+
+    @Test func hostFeaturesProducesCorrectArgs() {
+        #expect(ADBCommand.hostFeatures.arguments == ["host-features"])
+    }
+
+    @Test func pullWithCompressionAddsZstdFlag() {
+        let cmd = ADBCommand.pull(serial: "ABC123", remote: "/sdcard/x", local: "/tmp/x", compressed: true)
+        #expect(cmd.arguments == ["-s", "ABC123", "pull", "-z", "zstd", "/sdcard/x", "/tmp/x"])
+    }
+
+    @Test func pullWithoutCompressionOmitsFlag() {
+        let cmd = ADBCommand.pull(serial: "ABC123", remote: "/sdcard/x", local: "/tmp/x", compressed: false)
+        #expect(cmd.arguments == ["-s", "ABC123", "pull", "/sdcard/x", "/tmp/x"])
+    }
+
+    @Test func pushWithCompressionAddsZstdFlag() {
+        let cmd = ADBCommand.push(serial: "ABC123", local: "/tmp/x", remote: "/sdcard/x", compressed: true)
+        #expect(cmd.arguments == ["-s", "ABC123", "push", "-z", "zstd", "/tmp/x", "/sdcard/x"])
+    }
+
+    @Test func pushWithoutCompressionOmitsFlag() {
+        let cmd = ADBCommand.push(serial: "ABC123", local: "/tmp/x", remote: "/sdcard/x", compressed: false)
+        #expect(cmd.arguments == ["-s", "ABC123", "push", "/tmp/x", "/sdcard/x"])
+    }
 }

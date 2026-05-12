@@ -50,6 +50,12 @@ public enum ADBOutputParser {
         )
     }
 
+    public static func parseFeatures(_ output: String) -> Set<String> {
+        let clean = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return [] }
+        return Set(clean.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+    }
+
     public static func parseLsLine(_ line: String) -> LsEntry? {
         let parts = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
         guard parts.count >= 8 else { return nil }
