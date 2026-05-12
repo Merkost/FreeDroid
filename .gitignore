@@ -25,3 +25,5 @@ notarization-receipt.json
 
 .env
 .env.*
+
+Configs/Local.xcconfig

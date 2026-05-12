@@ -1,0 +1,5 @@
+// Local signing configuration — not committed.
+// Copy this file to Configs/Local.xcconfig and fill in your Team ID.
+// Find your Team ID at https://developer.apple.com/account → Membership.
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID_HERE

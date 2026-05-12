@@ -30,6 +30,9 @@ targets:
     deploymentTarget: "15.4"
     sources:
       - path: FreeDroid
+    configFiles:
+      Debug: Configs/Local.xcconfig
+      Release: Configs/Local.xcconfig
     resources:
       - path: FreeDroid/Resources
         optional: true
@@ -75,6 +78,9 @@ targets:
     deploymentTarget: "15.4"
     sources:
       - path: FreeDroidFS
+    configFiles:
+      Debug: Configs/Local.xcconfig
+      Release: Configs/Local.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.merkost.freedroid.FreeDroidFS

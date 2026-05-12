@@ -7,6 +7,14 @@
 3. Generate the Xcode project: `Scripts/generate-project.sh`.
 4. `open FreeDroid.xcworkspace` and build.
 
+## Signing (one-time setup)
+
+1. Run `Scripts/generate-project.sh` once. It will create `Configs/Local.xcconfig` from the template.
+2. Open `Configs/Local.xcconfig` and replace `YOUR_TEAM_ID_HERE` with your Apple Developer Team ID (10 characters, found in your developer account's Membership page or Xcode → Settings → Accounts).
+3. Re-run `Scripts/generate-project.sh`. Your team ID is now baked into both the `FreeDroid` and `FreeDroidFS` targets and will persist across every regeneration.
+
+`Configs/Local.xcconfig` is gitignored. Each contributor sets their own team locally.
+
 ## Regenerating the Xcode project
 
 Always use `Scripts/generate-project.sh`, not `xcodegen` directly. The wrapper runs XcodeGen and then patches the resulting `project.pbxproj` to add `package =` references on every local Swift Package product — Xcode 26's UI requires this field, but XcodeGen 2.45 does not emit it.
