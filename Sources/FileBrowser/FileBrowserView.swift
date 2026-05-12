@@ -9,6 +9,8 @@ public struct FileBrowserView: View {
     @State private var newName: String = ""
     @State private var isCreatingFolder = false
     @State private var newFolderName: String = ""
+    @State private var pendingDeletion = false
+    @FocusState private var listFocused: Bool
 
     public init(viewModel: FileBrowserViewModel) {
         self.viewModel = viewModel
@@ -17,34 +19,22 @@ public struct FileBrowserView: View {
     public var body: some View {
         ZStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
-                BreadcrumbBar(components: viewModel.breadcrumb) { path in
-                    Task { await viewModel.navigate(to: path) }
+                BreadcrumbBar(components: viewModel.breadcrumb) { destination in
+                    Task { await viewModel.navigate(to: destination) }
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
 
                 Divider().overlay(theme.colors.line)
 
-                if viewModel.isLoading && viewModel.entries.isEmpty {
-                    VStack {
-                        Spacer()
-                        Spinner(size: 24)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if viewModel.entries.isEmpty {
-                    EmptyState(
-                        icon: "folder",
-                        title: "Empty folder",
-                        message: "Nothing here yet. Drag files in to upload.",
-                        actionLabel: "New folder"
-                    ) {
-                        isCreatingFolder = true
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    list
+                FileListHeader(sort: viewModel.sort, ascending: viewModel.sortAscending) { option in
+                    viewModel.setSort(option)
                 }
+
+                contentArea
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .motion(.smooth, value: viewModel.isLoading)
+                    .motion(.smooth, value: viewModel.entries.count)
             }
 
             if !viewModel.selection.isEmpty {
@@ -52,7 +42,7 @@ public struct FileBrowserView: View {
                     selectionCount: viewModel.selection.count,
                     actions: [
                         CommandStripAction(label: "Delete", systemImage: "trash") {
-                            Task { await viewModel.deleteSelection() }
+                            pendingDeletion = true
                         },
                         CommandStripAction(label: "Clear", systemImage: "xmark.circle") {
                             viewModel.clearSelection()
@@ -60,44 +50,181 @@ public struct FileBrowserView: View {
                     ]
                 )
                 .padding(.bottom, Spacing.lg)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .background(theme.colors.background0)
+        .motion(.smooth, value: viewModel.selection.count)
+        .focusable()
+        .focused($listFocused)
+        .onAppear { listFocused = true }
+        .focusEffectDisabled()
         .task { await viewModel.reload() }
+        .background(keyboardShortcuts)
         .sheet(item: $renameTarget) { entry in
             renameSheet(for: entry)
         }
         .sheet(isPresented: $isCreatingFolder) {
             newFolderSheet
         }
+        .confirmationDialog(
+            deletionPrompt,
+            isPresented: $pendingDeletion,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task { await viewModel.deleteSelection() }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    @ViewBuilder
+    private var contentArea: some View {
+        if viewModel.isLoading && viewModel.entries.isEmpty {
+            FileListSkeleton()
+        } else if viewModel.entries.isEmpty, let error = viewModel.lastError {
+            errorContainer(error: error)
+        } else if viewModel.entries.isEmpty {
+            emptyContainer
+        } else {
+            list
+        }
+    }
+
+    private func errorContainer(error: TransportError) -> some View {
+        VStack {
+            Spacer()
+            FileBrowserErrorCard(error: error) {
+                Task { await viewModel.reload() }
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var emptyContainer: some View {
+        VStack {
+            Spacer()
+            EmptyState(
+                icon: "folder",
+                title: "Empty folder",
+                message: "Drop files here to upload, or create a new folder to organize this device.",
+                actionLabel: "New folder"
+            ) {
+                isCreatingFolder = true
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var list: some View {
-        ScrollView {
-            LazyVStack(spacing: 1) {
-                ForEach(viewModel.entries) { entry in
-                    FileRowView(entry: entry, isSelected: viewModel.selection.contains(entry.path))
-                        .onTapGesture {
-                            if entry.kind == .directory {
-                                Task { await viewModel.navigate(to: entry.path) }
-                            } else {
-                                viewModel.toggleSelection(entry.path)
-                            }
-                        }
-                        .contextMenu {
-                            Button("Rename") {
-                                renameTarget = entry
-                                newName = entry.name
-                            }
-                            Button("Delete", role: .destructive) {
-                                viewModel.selectOnly(entry.path)
-                                Task { await viewModel.deleteSelection() }
-                            }
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 1) {
+                    ForEach(viewModel.entries) { entry in
+                        rowButton(for: entry)
+                            .id(entry.path)
+                            .transition(.opacity)
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
+            }
+            .onChange(of: viewModel.focusedPath) { _, newValue in
+                guard let target = newValue else { return }
+                withAnimation(Motion.crisp.animation) {
+                    proxy.scrollTo(target, anchor: .center)
                 }
             }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
         }
+    }
+
+    private func rowButton(for entry: RemoteEntry) -> some View {
+        FileRowView(
+            entry: entry,
+            isSelected: viewModel.selection.contains(entry.path),
+            isFocused: viewModel.focusedPath == entry.path
+        )
+        .onTapGesture { handleTap(entry: entry) }
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                if entry.kind == .directory {
+                    Task { await viewModel.navigate(to: entry.path) }
+                }
+            }
+        )
+        .contextMenu {
+            if entry.kind == .directory {
+                Button("Open") {
+                    Task { await viewModel.navigate(to: entry.path) }
+                }
+            }
+            Button("Rename") {
+                renameTarget = entry
+                newName = entry.name
+            }
+            Button("Delete", role: .destructive) {
+                viewModel.selectOnly(entry.path)
+                pendingDeletion = true
+            }
+        }
+    }
+
+    private func handleTap(entry: RemoteEntry) {
+        let modifiers = NSEvent.modifierFlags
+        if modifiers.contains(.shift) {
+            viewModel.extendSelection(to: entry.path)
+        } else if modifiers.contains(.command) {
+            viewModel.toggleSelection(entry.path)
+        } else if entry.kind == .directory {
+            Task { await viewModel.navigate(to: entry.path) }
+        } else {
+            viewModel.selectOnly(entry.path)
+        }
+    }
+
+    private var deletionPrompt: String {
+        let count = viewModel.selection.count
+        return count == 1 ? "Delete 1 item?" : "Delete \(count) items?"
+    }
+
+    private var keyboardShortcuts: some View {
+        VStack(spacing: 0) {
+            Button("") { viewModel.setSort(.name) }
+                .keyboardShortcut("1", modifiers: .command)
+            Button("") { viewModel.setSort(.size) }
+                .keyboardShortcut("2", modifiers: .command)
+            Button("") { viewModel.setSort(.modified) }
+                .keyboardShortcut("3", modifiers: .command)
+            Button("") { viewModel.selectAll() }
+                .keyboardShortcut("a", modifiers: .command)
+            Button("") {
+                guard !viewModel.selection.isEmpty else { return }
+                pendingDeletion = true
+            }
+            .keyboardShortcut(.delete, modifiers: [])
+            Button("") { viewModel.clearSelection() }
+                .keyboardShortcut(.escape, modifiers: [])
+            Button("") { Task { await viewModel.navigateUp() } }
+                .keyboardShortcut(.delete, modifiers: .command)
+            Button("") { viewModel.moveFocus(by: 1) }
+                .keyboardShortcut(.downArrow, modifiers: [])
+            Button("") { viewModel.moveFocus(by: -1) }
+                .keyboardShortcut(.upArrow, modifiers: [])
+            Button("") { viewModel.extendFocus(by: 1) }
+                .keyboardShortcut(.downArrow, modifiers: .shift)
+            Button("") { viewModel.extendFocus(by: -1) }
+                .keyboardShortcut(.upArrow, modifiers: .shift)
+            Button("") { Task { await viewModel.activateFocused() } }
+                .keyboardShortcut(.return, modifiers: [])
+        }
+        .buttonStyle(.plain)
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func renameSheet(for entry: RemoteEntry) -> some View {
