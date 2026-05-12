@@ -22,6 +22,8 @@ excluded:
   - Packages/Features/FileBrowser/.swiftpm
   - Packages/Features/Gallery/.build
   - Packages/Features/Gallery/.swiftpm
+  - Packages/Features/Transfer/.build
+  - Packages/Features/Transfer/.swiftpm
 
 opt_in_rules:
   - empty_count

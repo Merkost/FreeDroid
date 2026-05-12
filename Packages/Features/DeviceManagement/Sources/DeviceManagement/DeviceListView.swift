@@ -5,9 +5,11 @@ import FreeDroidUI
 public struct DeviceListView: View {
     @Environment(\.theme) private var theme
     @Bindable var viewModel: DeviceListViewModel
+    var deviceFractions: [DeviceID: Double]
 
-    public init(viewModel: DeviceListViewModel) {
+    public init(viewModel: DeviceListViewModel, deviceFractions: [DeviceID: Double] = [:]) {
         self.viewModel = viewModel
+        self.deviceFractions = deviceFractions
     }
 
     public var body: some View {
@@ -23,10 +25,10 @@ public struct DeviceListView: View {
                         DeviceEmptyState()
                     } else {
                         ForEach(viewModel.devices) { device in
-                            let cardViewModel = DeviceCardViewModel(device: device)
-                            DeviceCardView(
-                                viewModel: cardViewModel,
-                                isSelected: device.id == viewModel.selectedID
+                            DeviceCardRow(
+                                device: device,
+                                isSelected: device.id == viewModel.selectedID,
+                                transferFraction: deviceFractions[device.id]
                             )
                             .onTapGesture { viewModel.select(device.id) }
                             .motion(.crisp, value: viewModel.selectedID)
@@ -41,5 +43,26 @@ public struct DeviceListView: View {
         .task {
             await viewModel.observe()
         }
+    }
+}
+
+private struct DeviceCardRow: View {
+    let device: Device
+    let isSelected: Bool
+    let transferFraction: Double?
+
+    var body: some View {
+        DeviceCardView(
+            viewModel: cardViewModel,
+            isSelected: isSelected
+        )
+    }
+
+    private var cardViewModel: DeviceCardViewModel {
+        let vm = DeviceCardViewModel(device: device)
+        if let fraction = transferFraction {
+            vm.setTransferProgress(fraction)
+        }
+        return vm
     }
 }

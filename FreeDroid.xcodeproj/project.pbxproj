@@ -12,6 +12,7 @@
 		1A4E6C644B4E039B72DC8D21 /* FreeDroidDomain in Frameworks */ = {isa = PBXBuildFile; productRef = C450EFCB07619067F9DD1302 /* FreeDroidDomain */; };
 		2EBD1E01C9E2EAC77E93623E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4795F8F26599DDE1A0E94313 /* ContentView.swift */; };
 		322226196FA96D8DA7A38633 /* Gallery in Frameworks */ = {isa = PBXBuildFile; productRef = 594B36AD92E2239E5EE68DE7 /* Gallery */; };
+		571A2059EF9FDE8A649743FD /* Transfer in Frameworks */ = {isa = PBXBuildFile; productRef = CBDC59F94B320EDB2516806E /* Transfer */; };
 		5B90DC5C67360A0823149427 /* FreeDroidUI in Frameworks */ = {isa = PBXBuildFile; productRef = AAD96F97F35314685AA84700 /* FreeDroidUI */; };
 		622A4AD264A2354B10D4031F /* FileBrowser in Frameworks */ = {isa = PBXBuildFile; productRef = 6416C4292B8B9A891E95320F /* FileBrowser */; };
 		85DCC9E33545606122739AB2 /* FreeDroidApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 563F1FD007671E7BC7E2F8A5 /* FreeDroidApp.swift */; };
@@ -30,6 +31,7 @@
 		C70708F3899D9DD04979DE3C /* FreeDroid.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FreeDroid.entitlements; sourceTree = "<group>"; };
 		CEBFFBB2815B15EAE0D85800 /* FreeDroidADB */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FreeDroidADB; path = Packages/FreeDroidADB; sourceTree = SOURCE_ROOT; };
 		E237E2C482ED6F959CEFC98B /* FreeDroid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FreeDroid.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB9ACBB9119C0D4486D1C1F5 /* Transfer */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Transfer; path = Packages/Features/Transfer; sourceTree = SOURCE_ROOT; };
 		F5010F45610834B92A51C81E /* FreeDroidData */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FreeDroidData; path = Packages/FreeDroidData; sourceTree = SOURCE_ROOT; };
 		F8A08126040DA58E7F83D89A /* Gallery */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Gallery; path = Packages/Features/Gallery; sourceTree = SOURCE_ROOT; };
 		FEDBC712452B5D42B82CDBA6 /* FreeDroidUI */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FreeDroidUI; path = Packages/FreeDroidUI; sourceTree = SOURCE_ROOT; };
@@ -46,6 +48,7 @@
 				16F384659C22BBD6C13410C1 /* DeviceManagement in Frameworks */,
 				622A4AD264A2354B10D4031F /* FileBrowser in Frameworks */,
 				322226196FA96D8DA7A38633 /* Gallery in Frameworks */,
+				571A2059EF9FDE8A649743FD /* Transfer in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -63,6 +66,7 @@
 				823B7F91D5CB23457663926C /* FreeDroidMTP */,
 				FEDBC712452B5D42B82CDBA6 /* FreeDroidUI */,
 				F8A08126040DA58E7F83D89A /* Gallery */,
+				EB9ACBB9119C0D4486D1C1F5 /* Transfer */,
 			);
 			path = Packages;
 			sourceTree = "<group>";
@@ -118,6 +122,7 @@
 				9CF0383DEAADEF9011398D98 /* DeviceManagement */,
 				6416C4292B8B9A891E95320F /* FileBrowser */,
 				594B36AD92E2239E5EE68DE7 /* Gallery */,
+				CBDC59F94B320EDB2516806E /* Transfer */,
 			);
 			productName = FreeDroid;
 			productReference = E237E2C482ED6F959CEFC98B /* FreeDroid.app */;
@@ -155,6 +160,7 @@
 				56B8CB1F6E577CD043461C9F /* XCLocalSwiftPackageReference "Packages/FreeDroidMTP" */,
 				B7A3C851EBED938E6CE447F6 /* XCLocalSwiftPackageReference "Packages/FreeDroidUI" */,
 				A18A4DB94BF3869449D027B0 /* XCLocalSwiftPackageReference "Packages/Features/Gallery" */,
+				FE0C1DB3F7FBAB3679D89FB8 /* XCLocalSwiftPackageReference "Packages/Features/Transfer" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A34E4A2A01578EF3CA658938 /* Products */;
@@ -405,6 +411,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/FreeDroidADB;
 		};
+		FE0C1DB3F7FBAB3679D89FB8 /* XCLocalSwiftPackageReference "Packages/Features/Transfer" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Features/Transfer;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -431,6 +441,10 @@
 		C450EFCB07619067F9DD1302 /* FreeDroidDomain */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FreeDroidDomain;
+		};
+		CBDC59F94B320EDB2516806E /* Transfer */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Transfer;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

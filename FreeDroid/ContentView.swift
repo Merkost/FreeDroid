@@ -4,6 +4,7 @@ import FreeDroidDomain
 import DeviceManagement
 import FileBrowser
 import Gallery
+import Transfer
 
 struct ContentView: View {
     @Environment(AppContainer.self) private var container
@@ -16,7 +17,10 @@ struct ContentView: View {
         ZStack {
             AmbientGradientBackground().ignoresSafeArea()
             HStack(spacing: 0) {
-                DeviceListView(viewModel: container.deviceListViewModel)
+                DeviceListView(
+                    viewModel: container.deviceListViewModel,
+                    deviceFractions: container.transfersViewModel.deviceFractions
+                )
                 Divider().overlay(theme.colors.line)
                 detail
             }
@@ -24,6 +28,33 @@ struct ContentView: View {
         .frame(minWidth: 920, minHeight: 600)
         .freeDroidTheme(theme)
         .task { await container.start() }
+        .overlay(alignment: .bottomTrailing) {
+            if !container.transfersViewModel.states.isEmpty {
+                TransfersPanel(
+                    viewModel: container.transfersViewModel,
+                    deviceNameByID: { deviceID in
+                        container.deviceListViewModel.devices.first { $0.id == deviceID }?.displayName
+                    }
+                )
+                .frame(width: 360)
+                .padding(Spacing.lg)
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            VStack(spacing: Spacing.sm) {
+                ForEach(container.transferToastPresenter.toasts) { toast in
+                    toast
+                }
+            }
+            .padding(Spacing.lg)
+        }
+        .task {
+            for await states in container.transferRepository.observe() {
+                await MainActor.run {
+                    container.transferToastPresenter.consume(states)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -44,7 +75,23 @@ struct ContentView: View {
                     case .gallery:
                         GalleryView(
                             viewModel: container.galleryViewModel(for: selectedID),
-                            onCopySelectionToMac: { _ in }
+                            onCopySelectionToMac: { items in
+                                Task {
+                                    guard let device = await container.registry.device(selectedID) else { return }
+                                    let stream = container.startTransferUseCase()(
+                                        deviceID: selectedID,
+                                        deviceName: device.displayName,
+                                        items: items.map { $0.path }
+                                    )
+                                    do {
+                                        for try await progress in stream {
+                                            await MainActor.run {
+                                                container.transfersViewModel.register(jobID: progress.jobID, on: selectedID)
+                                            }
+                                        }
+                                    } catch {}
+                                }
+                            }
                         )
                     }
                 }

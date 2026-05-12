@@ -7,6 +7,7 @@ import FreeDroidMTP
 import DeviceManagement
 import FileBrowser
 import Gallery
+import Transfer
 
 @MainActor
 @Observable
@@ -22,6 +23,12 @@ final class AppContainer {
     let registry: DeviceRegistry
     let deviceRepository: DeviceRepositoryImpl
     let deviceListViewModel: DeviceListViewModel
+
+    let transferQueue = TransferQueue()
+    let transferDestinations = DownloadsTransferDestinationProvider()
+    let transferRepository: TransferRepositoryImpl
+    let transfersViewModel: TransfersViewModel
+    let transferToastPresenter = TransferToastPresenter()
 
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -43,6 +50,11 @@ final class AppContainer {
         )
         self.deviceRepository = DeviceRepositoryImpl(registry: registry)
         self.deviceListViewModel = DeviceListViewModel(repository: deviceRepository)
+        self.transferRepository = TransferRepositoryImpl(queue: transferQueue, registry: registry)
+        self.transfersViewModel = TransfersViewModel(
+            repository: transferRepository,
+            cancel: CancelTransferUseCase(repository: transferRepository)
+        )
     }
 
     func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {
@@ -68,6 +80,10 @@ final class AppContainer {
             loadMedia: LoadMediaUseCase(mediaRepository: mediaRepo),
             loadThumbnail: LoadThumbnailUseCase(mediaRepository: mediaRepo)
         )
+    }
+
+    func startTransferUseCase() -> StartTransferUseCase {
+        StartTransferUseCase(repository: transferRepository, destinations: transferDestinations)
     }
 
     func start() async {

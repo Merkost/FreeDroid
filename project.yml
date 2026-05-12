@@ -33,6 +33,8 @@ packages:
     path: Packages/Features/FileBrowser
   Gallery:
     path: Packages/Features/Gallery
+  Transfer:
+    path: Packages/Features/Transfer
 
 targets:
   FreeDroid:
@@ -71,3 +73,5 @@ targets:
         product: FileBrowser
       - package: Gallery
         product: Gallery
+      - package: Transfer
+        product: Transfer
