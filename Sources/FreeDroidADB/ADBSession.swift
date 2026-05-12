@@ -162,7 +162,7 @@ public actor ADBSession: Transport {
             timeout: .seconds(600)
         )
         let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
-        progress?.report(bytesTransferred: size, totalBytes: size)
+        progress?(size, size)
         return size
     }
 
@@ -174,7 +174,7 @@ public actor ADBSession: Transport {
             .push(serial: serial, local: source.path, remote: path.raw, compressed: compressed),
             timeout: .seconds(600)
         )
-        progress?.report(bytesTransferred: size, totalBytes: size)
+        progress?(size, size)
         return size
     }
 
