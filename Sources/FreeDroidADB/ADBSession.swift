@@ -55,10 +55,16 @@ public actor ADBSession: Transport {
 
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
         let runner = await server.runner(for: serial)
-        let out = try await runner.run(
-            .shell(serial: serial, script: "ls -alL \(escape(path.raw))/"),
-            timeout: .seconds(45)
-        )
+        let out: ADBProcessOutput
+        do {
+            out = try await runner.run(
+                .shell(serial: serial, script: "ls -alL \(escape(path.raw))/"),
+                timeout: .seconds(45)
+            )
+        } catch let ADBRunnerError.nonZeroExit(_, stderr) where Self.isInaccessible(stderr) {
+            return []
+        }
+        if Self.isInaccessible(out.stderr) { return [] }
         let lines = out.stdout.split(separator: "\n").map(String.init)
         return lines.compactMap { line -> RemoteEntry? in
             guard !line.hasPrefix("total ") else { return nil }
@@ -74,6 +80,13 @@ public actor ADBSession: Transport {
                 isHidden: parsed.name.hasPrefix(".")
             )
         }
+    }
+
+    private static func isInaccessible(_ stderr: String) -> Bool {
+        let lowered = stderr.lowercased()
+        return lowered.contains("permission denied")
+            || lowered.contains("operation not permitted")
+            || lowered.contains("no such file or directory")
     }
 
     public func stat(_ path: RemotePath) async throws -> RemoteEntry {
