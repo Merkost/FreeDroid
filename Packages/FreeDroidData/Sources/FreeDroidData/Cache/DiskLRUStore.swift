@@ -53,8 +53,9 @@ public actor DiskLRUStore {
             includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
         )
         let sorted = try urls.sorted { lhs, rhs in
-            let leftDate = try lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast
-            let rightDate = try rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast
+            let modKeys: Set<URLResourceKey> = [.contentModificationDateKey]
+            let leftDate = try lhs.resourceValues(forKeys: modKeys).contentModificationDate ?? .distantPast
+            let rightDate = try rhs.resourceValues(forKeys: modKeys).contentModificationDate ?? .distantPast
             return leftDate < rightDate
         }
         var freed: Int64 = 0
