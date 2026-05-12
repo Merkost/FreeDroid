@@ -29,7 +29,7 @@ public enum ADBCommand: Hashable, Sendable {
         case let .getProp(serial, property):
             return ["-s", serial, "shell", "getprop", property]
         case let .pull(serial, remote, local, compressed):
-            var args = ["-s", serial, "pull"]
+            var args = ["-s", serial, "pull", "-a"]
             if compressed { args += ["-z", "zstd"] }
             args += [remote, local]
             return args

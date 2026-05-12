@@ -22,7 +22,7 @@ struct ADBCommandTests {
 
     @Test func pullProducesCorrectArgs() {
         let cmd = ADBCommand.pull(serial: "ABC123", remote: "/sdcard/x", local: "/tmp/x")
-        #expect(cmd.arguments == ["-s", "ABC123", "pull", "/sdcard/x", "/tmp/x"])
+        #expect(cmd.arguments == ["-s", "ABC123", "pull", "-a", "/sdcard/x", "/tmp/x"])
     }
 
     @Test func pushProducesCorrectArgs() {
@@ -56,12 +56,12 @@ struct ADBCommandTests {
 
     @Test func pullWithCompressionAddsZstdFlag() {
         let cmd = ADBCommand.pull(serial: "ABC123", remote: "/sdcard/x", local: "/tmp/x", compressed: true)
-        #expect(cmd.arguments == ["-s", "ABC123", "pull", "-z", "zstd", "/sdcard/x", "/tmp/x"])
+        #expect(cmd.arguments == ["-s", "ABC123", "pull", "-a", "-z", "zstd", "/sdcard/x", "/tmp/x"])
     }
 
     @Test func pullWithoutCompressionOmitsFlag() {
         let cmd = ADBCommand.pull(serial: "ABC123", remote: "/sdcard/x", local: "/tmp/x", compressed: false)
-        #expect(cmd.arguments == ["-s", "ABC123", "pull", "/sdcard/x", "/tmp/x"])
+        #expect(cmd.arguments == ["-s", "ABC123", "pull", "-a", "/sdcard/x", "/tmp/x"])
     }
 
     @Test func pushWithCompressionAddsZstdFlag() {
