@@ -88,6 +88,10 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         for containerItemIdentifier: NSFileProviderItemIdentifier,
         request: NSFileProviderRequest
     ) throws -> NSFileProviderEnumerator {
+        if containerItemIdentifier == .workingSet { return WorkingSetEnumerator() }
+        if containerItemIdentifier == .trashContainer {
+            throw NSFileProviderError(.noSuchItem)
+        }
         let path = ItemIdentifier.decode(containerItemIdentifier.rawValue) ?? .root
         return FolderEnumerator(
             container: containerItemIdentifier,

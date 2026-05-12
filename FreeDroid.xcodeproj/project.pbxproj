@@ -26,6 +26,7 @@
 		96FFA2678FD6B93031A99491 /* FreeDroidProviderShared in Frameworks */ = {isa = PBXBuildFile; productRef = 178E5F95ADB92A55DBB8ECD0 /* FreeDroidProviderShared */; };
 		A4B96B2AF74234A032AC8376 /* XPCConnectionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E12843AEB84C3AAC4AC43AE /* XPCConnectionRegistry.swift */; };
 		A9C1C3AC0E806158ADA0B002 /* ProviderDomainCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C03083718BC75365E10EEDE /* ProviderDomainCoordinator.swift */; };
+		AA5E0FA55DBC16BAAEDED2AB /* WorkingSetEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAA8D83B7B4F0CD7C7B7A898 /* WorkingSetEnumerator.swift */; };
 		AD3758225A4798AB564121F7 /* XPCBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5439E0FF78AE3F0C78D3BA /* XPCBridge.swift */; };
 		AD7C0A21C7529B322606712C /* NetFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 162884523BB388FF94563842 /* NetFS.framework */; };
 		BF9E0DF5F25FB0046D3B3F9F /* FreeDroidProvider.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 081861D6A5CE52E2FDA0F2DB /* FreeDroidProvider.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -83,6 +84,7 @@
 		C70708F3899D9DD04979DE3C /* FreeDroid.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FreeDroid.entitlements; sourceTree = "<group>"; };
 		E237E2C482ED6F959CEFC98B /* FreeDroid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FreeDroid.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2B21BA991C5883C22B23076 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
+		EAA8D83B7B4F0CD7C7B7A898 /* WorkingSetEnumerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkingSetEnumerator.swift; sourceTree = "<group>"; };
 		ED5439E0FF78AE3F0C78D3BA /* XPCBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCBridge.swift; sourceTree = "<group>"; };
 		F68C86B168910F46DA6CB9E1 /* FreeDroid */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FreeDroid; path = .; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -187,6 +189,7 @@
 				5071D75D2B91AB13F51FB3A8 /* FreeDroidProvider.entitlements */,
 				60243A85985D41334BD8D80B /* FreeDroidProviderExtension.swift */,
 				8CCB5D6C6434BC4D0DAF2CAA /* Info.plist */,
+				EAA8D83B7B4F0CD7C7B7A898 /* WorkingSetEnumerator.swift */,
 				ED5439E0FF78AE3F0C78D3BA /* XPCBridge.swift */,
 			);
 			path = FreeDroidProvider;
@@ -327,6 +330,7 @@
 			files = (
 				3278C3198C53F58DFACC10D6 /* FolderEnumerator.swift in Sources */,
 				477BD63C6959BFA726BBD190 /* FreeDroidProviderExtension.swift in Sources */,
+				AA5E0FA55DBC16BAAEDED2AB /* WorkingSetEnumerator.swift in Sources */,
 				AD3758225A4798AB564121F7 /* XPCBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
