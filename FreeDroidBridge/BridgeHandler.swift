@@ -87,6 +87,15 @@ actor BridgeHandler {
             if let parent = from.parent { invalidateListing(deviceID: deviceID, path: parent) }
             if let parent = to.parent { invalidateListing(deviceID: deviceID, path: parent) }
             return .empty
+        case let .fetchToFile(deviceID, path, destination):
+            _ = try await sessions.session(for: deviceID.raw)
+                .fetch(path, into: URL(fileURLWithPath: destination), progress: nil)
+            return .empty
+        case let .uploadFromFile(deviceID, source, path):
+            _ = try await sessions.session(for: deviceID.raw)
+                .upload(from: URL(fileURLWithPath: source), to: path, progress: nil)
+            if let parent = path.parent { invalidateListing(deviceID: deviceID, path: parent) }
+            return .empty
         }
     }
 }

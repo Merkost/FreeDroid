@@ -98,6 +98,29 @@ public actor ADBSession: Transport {
         return match
     }
 
+    public func fetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
+        let runner = await server.runner(for: serial)
+        try? FileManager.default.removeItem(at: destination)
+        _ = try await runner.run(
+            .pull(serial: serial, remote: path.raw, local: destination.path),
+            timeout: .seconds(600)
+        )
+        let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
+        progress?.report(bytesTransferred: size, totalBytes: size)
+        return size
+    }
+
+    public func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
+        let runner = await server.runner(for: serial)
+        let size = (try? FileManager.default.attributesOfItem(atPath: source.path)[.size] as? NSNumber)?.int64Value ?? 0
+        _ = try await runner.run(
+            .push(serial: serial, local: source.path, remote: path.raw),
+            timeout: .seconds(600)
+        )
+        progress?.report(bytesTransferred: size, totalBytes: size)
+        return size
+    }
+
     public func read(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
         let temp = ADBFileSync.tempLocalPath()
         defer { try? FileManager.default.removeItem(at: temp) }

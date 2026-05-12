@@ -51,6 +51,20 @@ actor ProviderTransport {
         )
     }
 
+    func fetch(_ path: RemotePath, into destination: URL) async throws {
+        _ = try await send(
+            .fetchToFile(deviceID: deviceID, path: path, destination: destination.path),
+            expecting: Data.self
+        )
+    }
+
+    func upload(from source: URL, to path: RemotePath) async throws {
+        _ = try await send(
+            .uploadFromFile(deviceID: deviceID, source: source.path, path: path),
+            expecting: Data.self
+        )
+    }
+
     private func send<T: Decodable>(_ request: IPCRequest, expecting: T.Type) async throws -> T {
         let payload = try IPCCoder.encoder.encode(request)
         let proxy = makeProxy()

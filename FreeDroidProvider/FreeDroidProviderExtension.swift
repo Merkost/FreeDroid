@@ -51,25 +51,29 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                     throw NSFileProviderError(.noSuchItem)
                 }
                 let entry = try await transport.stat(path)
-                let total = entry.sizeBytes ?? 0
-                progress.totalUnitCount = total
-                let tempURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent(UUID().uuidString)
-                    .appendingPathExtension((entry.name as NSString).pathExtension)
-                FileManager.default.createFile(atPath: tempURL.path, contents: nil)
-                let handle = try FileHandle(forWritingTo: tempURL)
-                defer { try? handle.close() }
-                let chunkSize = 1 << 20
-                var offset: Int64 = 0
-                while offset < total {
-                    let length = Int(min(Int64(chunkSize), total - offset))
-                    let chunk = try await transport.read(path, offset: offset, length: length)
-                    try handle.write(contentsOf: chunk)
-                    offset += Int64(chunk.count)
-                    progress.completedUnitCount = offset
-                    if chunk.count == 0 { break }
+                progress.totalUnitCount = entry.sizeBytes ?? -1
+                let ext = (entry.name as NSString).pathExtension
+                let tempURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
+                nonisolated(unsafe) let progressURL = tempURL
+                nonisolated(unsafe) let progressRef = progress
+                let pollTask = Task<Void, Never> { [weak self] in
+                    _ = self
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .milliseconds(250))
+                        if Task.isCancelled { break }
+                        if let attrs = try? FileManager.default.attributesOfItem(atPath: progressURL.path),
+                           let size = (attrs[.size] as? NSNumber)?.int64Value {
+                            progressRef.completedUnitCount = size
+                        }
+                    }
                 }
-                let item = ProviderItem(entry: entry, parent: path.parent ?? .root)
+                defer { pollTask.cancel() }
+                try await transport.fetch(path, into: tempURL)
+                let finalEntry = (try? await transport.stat(path)) ?? entry
+                let finalSize = (try? FileManager.default.attributesOfItem(atPath: tempURL.path)[.size] as? NSNumber)?.int64Value ?? 0
+                if progress.totalUnitCount < 0 { progress.totalUnitCount = finalSize }
+                progress.completedUnitCount = finalSize
+                let item = ProviderItem(entry: finalEntry, parent: path.parent ?? .root)
                 handler(tempURL, item, nil)
             } catch let error as TransportError {
                 handler(nil, nil, ProviderError.map(error))

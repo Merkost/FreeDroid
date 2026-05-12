@@ -51,6 +51,12 @@ actor XPCFileServerHandler {
         case let .rename(deviceID, from, to):
             try await transport(for: deviceID).rename(from, to: to)
             return .empty
+        case let .fetchToFile(deviceID, path, destination):
+            _ = try await transport(for: deviceID).fetch(path, into: URL(fileURLWithPath: destination), progress: nil)
+            return .empty
+        case let .uploadFromFile(deviceID, source, path):
+            _ = try await transport(for: deviceID).upload(from: URL(fileURLWithPath: source), to: path, progress: nil)
+            return .empty
         }
     }
 }
