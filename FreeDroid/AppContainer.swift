@@ -1,5 +1,7 @@
 import Foundation
 import Observation
+import FSKit
+import os.log
 import FreeDroidDomain
 import FreeDroidData
 import FreeDroidADB
@@ -8,6 +10,8 @@ import DeviceManagement
 import FileBrowser
 import Gallery
 import Transfer
+
+private let mountLogger = Logger(subsystem: "app.freedroid", category: "mount")
 
 @MainActor
 @Observable
@@ -91,5 +95,27 @@ final class AppContainer {
     func start() async {
         try? await registry.start()
         xpcRegistry.start(registry: registry)
+        await observeDevicesForMounting()
+    }
+
+    @available(macOS 15.4, *)
+    private func observeDevicesForMounting() async {
+        let logger = mountLogger
+        let freedroidModuleID = "app.freedroid.FreeDroid.FreeDroidFS"
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            FSClient.shared.fetchInstalledExtensions { modules, error in
+                defer { continuation.resume() }
+                if let error {
+                    logger.error("Mount failed: \(String(describing: error), privacy: .public)")
+                    return
+                }
+                let found = modules?.contains { $0.bundleIdentifier == freedroidModuleID } ?? false
+                if found {
+                    logger.info("FreeDroidFS module found; awaiting entitlement for mount activation")
+                } else {
+                    logger.info("FreeDroidFS module not installed; mount stub — entitlement required")
+                }
+            }
+        }
     }
 }
