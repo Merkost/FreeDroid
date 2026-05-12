@@ -4,16 +4,17 @@ import FreeDroidProviderShared
 final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtension, @unchecked Sendable {
     let domain: NSFileProviderDomain
     let deviceID: DeviceID
-    let bridge = XPCBridge()
+    let transport: ProviderTransport
 
     required init(domain: NSFileProviderDomain) {
         self.domain = domain
         self.deviceID = DeviceID(raw: domain.identifier.rawValue)
+        self.transport = ProviderTransport(deviceID: DeviceID(raw: domain.identifier.rawValue))
         super.init()
     }
 
     func invalidate() {
-        Task { await bridge.invalidate() }
+        Task { await transport.invalidate() }
     }
 
     func item(
@@ -48,10 +49,8 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 guard let path = ItemIdentifier.decode(itemIdentifier.rawValue) else {
                     throw NSFileProviderError(.noSuchItem)
                 }
-                let entry = try await bridge.send(
-                    .stat(deviceID: deviceID, path: path),
-                    expecting: RemoteEntry.self
-                )
+                let session = try await transport.ensure()
+                let entry = try await session.stat(path)
                 let total = entry.sizeBytes ?? 0
                 progress.totalUnitCount = total
                 let tempURL = FileManager.default.temporaryDirectory
@@ -64,10 +63,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 var offset: Int64 = 0
                 while offset < total {
                     let length = Int(min(Int64(chunkSize), total - offset))
-                    let chunk = try await bridge.send(
-                        .read(deviceID: deviceID, path: path, offset: offset, length: length),
-                        expecting: Data.self
-                    )
+                    let chunk = try await session.read(path, offset: offset, length: length)
                     try handle.write(contentsOf: chunk)
                     offset += Int64(chunk.count)
                     progress.completedUnitCount = offset
@@ -96,8 +92,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         return FolderEnumerator(
             container: containerItemIdentifier,
             folderPath: path,
-            deviceID: deviceID,
-            bridge: bridge
+            transport: transport
         )
     }
 
@@ -118,24 +113,16 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
             do {
                 let parent = try resolveParent(parentIdentifier)
                 let newPath = parent.appending(filename)
+                let session = try await transport.ensure()
                 if contentType == .folder {
-                    _ = try await bridge.send(.mkdir(deviceID: deviceID, path: newPath), expecting: Data.self)
+                    try await session.mkdir(newPath)
                 } else if let url {
                     let data = try Data(contentsOf: url)
-                    _ = try await bridge.send(
-                        .write(deviceID: deviceID, path: newPath, data: data, offset: 0),
-                        expecting: Data.self
-                    )
+                    try await session.write(newPath, data: data, offset: 0)
                 } else {
-                    _ = try await bridge.send(
-                        .write(deviceID: deviceID, path: newPath, data: Data(), offset: 0),
-                        expecting: Data.self
-                    )
+                    try await session.write(newPath, data: Data(), offset: 0)
                 }
-                let entry = try await bridge.send(
-                    .stat(deviceID: deviceID, path: newPath),
-                    expecting: RemoteEntry.self
-                )
+                let entry = try await session.stat(newPath)
                 progress.completedUnitCount = 1
                 handler(ProviderItem(entry: entry, parent: parent), [], false, nil)
             } catch let error as TransportError {
@@ -175,31 +162,23 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                     throw NSFileProviderError(.noSuchItem)
                 }
                 var currentPath = path
+                let session = try await transport.ensure()
 
                 if changedFields.contains(.parentItemIdentifier) || changedFields.contains(.filename) {
                     let newParent = try resolveParent(parentIdentifier)
                     let target = newParent.appending(filename)
                     if target != currentPath {
-                        _ = try await bridge.send(
-                            .rename(deviceID: deviceID, from: currentPath, to: target),
-                            expecting: Data.self
-                        )
+                        try await session.rename(currentPath, to: target)
                         currentPath = target
                     }
                 }
 
                 if changedFields.contains(.contents), let newContents {
                     let data = try Data(contentsOf: newContents)
-                    _ = try await bridge.send(
-                        .write(deviceID: deviceID, path: currentPath, data: data, offset: 0),
-                        expecting: Data.self
-                    )
+                    try await session.write(currentPath, data: data, offset: 0)
                 }
 
-                let entry = try await bridge.send(
-                    .stat(deviceID: deviceID, path: currentPath),
-                    expecting: RemoteEntry.self
-                )
+                let entry = try await session.stat(currentPath)
                 progress.completedUnitCount = 1
                 handler(ProviderItem(entry: entry, parent: currentPath.parent ?? .root), [], false, nil)
             } catch let error as TransportError {
@@ -226,7 +205,8 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 guard let path = ItemIdentifier.decode(identifierRaw) else {
                     throw NSFileProviderError(.noSuchItem)
                 }
-                _ = try await bridge.send(.remove(deviceID: deviceID, path: path), expecting: Data.self)
+                let session = try await transport.ensure()
+                try await session.remove(path)
                 progress.completedUnitCount = 1
                 handler(nil)
             } catch let error as TransportError {
@@ -245,10 +225,8 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         guard let path = ItemIdentifier.decode(identifier.rawValue) else {
             throw NSFileProviderError(.noSuchItem)
         }
-        let entry = try await bridge.send(
-            .stat(deviceID: deviceID, path: path),
-            expecting: RemoteEntry.self
-        )
+        let session = try await transport.ensure()
+        let entry = try await session.stat(path)
         let parent = path.parent ?? .root
         return ProviderItem(entry: entry, parent: parent)
     }

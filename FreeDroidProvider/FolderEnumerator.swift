@@ -5,19 +5,16 @@ import FreeDroidProviderShared
 final class FolderEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
     private let containerIdentifier: NSFileProviderItemIdentifier
     private let folderPath: RemotePath
-    private let deviceID: DeviceID
-    private let bridge: XPCBridge
+    private let transport: ProviderTransport
 
     init(
         container: NSFileProviderItemIdentifier,
         folderPath: RemotePath,
-        deviceID: DeviceID,
-        bridge: XPCBridge
+        transport: ProviderTransport
     ) {
         self.containerIdentifier = container
         self.folderPath = folderPath
-        self.deviceID = deviceID
-        self.bridge = bridge
+        self.transport = transport
         super.init()
     }
 
@@ -25,14 +22,13 @@ final class FolderEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sen
 
     func enumerateItems(for observer: NSFileProviderEnumerationObserver, startingAt page: NSFileProviderPage) {
         nonisolated(unsafe) let obs = observer
+        nonisolated(unsafe) let path = folderPath
         Task {
             do {
-                let entries = try await bridge.send(
-                    .list(deviceID: deviceID, path: folderPath),
-                    expecting: [RemoteEntry].self
-                )
+                let session = try await transport.ensure()
+                let entries = try await session.list(path)
                 let items: [NSFileProviderItem] = entries.map {
-                    ProviderItem(entry: $0, parent: folderPath)
+                    ProviderItem(entry: $0, parent: path)
                 }
                 obs.didEnumerate(items)
                 obs.finishEnumerating(upTo: nil)
