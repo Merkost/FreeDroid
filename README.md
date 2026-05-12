@@ -77,6 +77,71 @@ Plug in your Android device, FreeDroid shows it in Finder's Locations sidebar �
 
 ---
 
+## Supported devices
+
+FreeDroid recognises **65+ Android OEM USB vendor IDs** — if your phone is on this list, it shows up in the sidebar as soon as it's plugged in (ADB if USB Debugging is on, MTP otherwise). Most popular brands are covered:
+
+<table>
+  <tr>
+    <td><strong>Google</strong> · Pixel</td>
+    <td><strong>Samsung</strong> · Galaxy</td>
+    <td><strong>Xiaomi</strong> · Mi, Redmi, POCO</td>
+    <td><strong>OnePlus</strong></td>
+  </tr>
+  <tr>
+    <td><strong>Oppo</strong></td>
+    <td><strong>Realme</strong></td>
+    <td><strong>Vivo</strong></td>
+    <td><strong>Huawei</strong></td>
+  </tr>
+  <tr>
+    <td><strong>Honor</strong></td>
+    <td><strong>Motorola</strong></td>
+    <td><strong>Sony</strong> · Xperia</td>
+    <td><strong>LG</strong></td>
+  </tr>
+  <tr>
+    <td><strong>HTC</strong></td>
+    <td><strong>ASUS</strong> · ROG, Zenfone</td>
+    <td><strong>Lenovo</strong></td>
+    <td><strong>Nothing</strong></td>
+  </tr>
+  <tr>
+    <td><strong>Nokia / HMD</strong></td>
+    <td><strong>TCL / Alcatel</strong></td>
+    <td><strong>ZTE</strong></td>
+    <td><strong>Tecno / Infinix</strong></td>
+  </tr>
+  <tr>
+    <td><strong>Wiko / Tinno</strong></td>
+    <td><strong>Hisense</strong></td>
+    <td><strong>Sharp</strong></td>
+    <td><strong>Kyocera</strong></td>
+  </tr>
+  <tr>
+    <td><strong>Panasonic</strong></td>
+    <td><strong>Pantech</strong></td>
+    <td><strong>Coolpad</strong></td>
+    <td><strong>Acer Mobile</strong></td>
+  </tr>
+  <tr>
+    <td><strong>Archos</strong></td>
+    <td><strong>BLU</strong></td>
+    <td><strong>Cubot</strong></td>
+    <td><strong>Doogee</strong></td>
+  </tr>
+  <tr>
+    <td><strong>Wileyfox</strong></td>
+    <td><strong>Highscreen</strong></td>
+    <td><strong>BlackBerry</strong></td>
+    <td>…and most generic Android tablets</td>
+  </tr>
+</table>
+
+Don't see your brand? File an issue with the output of `system_profiler SPUSBDataType | grep -B1 'Vendor ID'` and we'll add it. The full table lives in [`Sources/FreeDroidData/USB/AndroidVendorIDs.swift`](Sources/FreeDroidData/USB/AndroidVendorIDs.swift) — PRs welcome.
+
+---
+
 ## Quick start
 
 ```bash
