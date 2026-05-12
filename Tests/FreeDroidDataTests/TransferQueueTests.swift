@@ -68,6 +68,37 @@ actor FakeTransport: Transport {
 
 @Suite("TransferQueue")
 struct TransferQueueTests {
+    @Test func parallelPullsAllItems() async throws {
+        let transport = FakeTransport()
+        var paths: [RemotePath] = []
+        for index in 0..<7 {
+            let path = RemotePath(raw: "/x/file\(index).bin")
+            try await transport.write(path, data: Data(repeating: UInt8(index), count: 1024), offset: 0)
+            paths.append(path)
+        }
+        let queue = TransferQueue(maxParallelPerDevice: 3)
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("freedroid-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dest) }
+
+        let job = TransferJob(
+            deviceID: DeviceID(raw: "FAKE"),
+            direction: .toMac,
+            items: paths,
+            destination: dest
+        )
+        let engine = TransferEngine(transport: transport, chunkSize: 1024)
+        let stream = await queue.enqueue(job, engine: engine)
+        var lastProgress: TransferProgress?
+        for try await progress in stream { lastProgress = progress }
+        #expect(lastProgress?.completedBytes == Int64(paths.count) * 1024)
+        for path in paths {
+            let written = try Data(contentsOf: dest.appendingPathComponent(path.name))
+            #expect(written.count == 1024)
+        }
+    }
+
     @Test func pullsFileToLocal() async throws {
         let transport = FakeTransport()
         let path = RemotePath(raw: "/x/file.bin")

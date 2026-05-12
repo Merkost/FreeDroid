@@ -10,8 +10,16 @@ public actor TransferQueue {
     private var active: [UUID: ActiveJob] = [:]
     private var stateSubscribers: [AsyncStream<[TransferState]>.Continuation] = []
     private var jobStates: [UUID: TransferState] = [:]
+    private let maxParallelPerDevice: Int
 
-    public init() {}
+    public init(maxParallelPerDevice: Int = TransferQueue.defaultParallelism()) {
+        self.maxParallelPerDevice = max(1, min(maxParallelPerDevice, 16))
+    }
+
+    public static func defaultParallelism() -> Int {
+        let stored = UserDefaults.standard.integer(forKey: "FreeDroid.ParallelTransfersPerDevice")
+        return stored == 0 ? 3 : max(1, min(stored, 16))
+    }
 
     public func enqueue(_ job: TransferJob, engine: TransferEngine) -> AsyncThrowingStream<TransferProgress, Error> {
         AsyncThrowingStream { continuation in
@@ -27,23 +35,21 @@ public actor TransferQueue {
                 publish()
                 do {
                     let total = try await self.computeTotal(job: job, engine: engine)
-                    var copied: Int64 = 0
-                    for item in job.items {
-                        try Task.checkCancellation()
-                        let local = job.destination.appendingPathComponent(item.name)
-                        let bytes = try await engine.pull(item, to: local)
-                        copied += bytes
-                        let progress = TransferProgress(
-                            jobID: job.id,
-                            completedBytes: copied,
-                            totalBytes: total,
-                            currentItem: item,
-                            bytesPerSecond: 0
-                        )
-                        jobStates[job.id] = .running(progress)
-                        publish()
-                        continuation.yield(progress)
-                    }
+                    let copied = try await self.runParallelPull(
+                        job: job,
+                        engine: engine,
+                        total: total,
+                        continuation: continuation
+                    )
+                    let finalProgress = TransferProgress(
+                        jobID: job.id,
+                        completedBytes: copied,
+                        totalBytes: total,
+                        currentItem: nil,
+                        bytesPerSecond: 0
+                    )
+                    jobStates[job.id] = .running(finalProgress)
+                    publish()
                     jobStates[job.id] = .completed
                     publish()
                     continuation.finish()
@@ -93,5 +99,59 @@ public actor TransferQueue {
             total += entry.sizeBytes ?? 0
         }
         return total
+    }
+
+    private func runParallelPull(
+        job: TransferJob,
+        engine: TransferEngine,
+        total: Int64,
+        continuation: AsyncThrowingStream<TransferProgress, Error>.Continuation
+    ) async throws -> Int64 {
+        let limit = maxParallelPerDevice
+        let jobID = job.id
+        let destination = job.destination
+        var copied: Int64 = 0
+        try await withThrowingTaskGroup(of: (RemotePath, Int64).self) { group in
+            var inFlight = 0
+            var index = 0
+            let items = job.items
+            while index < items.count && inFlight < limit {
+                let item = items[index]
+                index += 1
+                inFlight += 1
+                group.addTask {
+                    let local = destination.appendingPathComponent(item.name)
+                    let bytes = try await engine.pull(item, to: local)
+                    return (item, bytes)
+                }
+            }
+            while let result = try await group.next() {
+                inFlight -= 1
+                let (item, bytes) = result
+                copied += bytes
+                let progress = TransferProgress(
+                    jobID: jobID,
+                    completedBytes: copied,
+                    totalBytes: total,
+                    currentItem: item,
+                    bytesPerSecond: 0
+                )
+                jobStates[jobID] = .running(progress)
+                publish()
+                continuation.yield(progress)
+                if index < items.count {
+                    try Task.checkCancellation()
+                    let next = items[index]
+                    index += 1
+                    inFlight += 1
+                    group.addTask {
+                        let local = destination.appendingPathComponent(next.name)
+                        let bytes = try await engine.pull(next, to: local)
+                        return (next, bytes)
+                    }
+                }
+            }
+        }
+        return copied
     }
 }

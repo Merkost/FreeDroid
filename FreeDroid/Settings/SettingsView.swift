@@ -31,6 +31,17 @@ struct GeneralSettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
+            Section("Transfers") {
+                Picker("Parallel transfers per device", selection: $preferences.parallelTransfers) {
+                    ForEach(ParallelTransfers.allCases) { value in
+                        Text(value.label).tag(value)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("Run multiple file copies at once. Use 1 if your phone or USB cable is unstable.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding()

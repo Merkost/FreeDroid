@@ -19,6 +19,16 @@ public enum AppearanceMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+public enum ParallelTransfers: Int, CaseIterable, Identifiable, Sendable {
+    case one = 1
+    case three = 3
+    case five = 5
+    case eight = 8
+
+    public var id: Int { rawValue }
+    public var label: String { "\(rawValue)" }
+}
+
 @MainActor
 @Observable
 public final class AppPreferences {
@@ -28,12 +38,21 @@ public final class AppPreferences {
         }
     }
 
+    public var parallelTransfers: ParallelTransfers {
+        didSet {
+            UserDefaults.standard.set(parallelTransfers.rawValue, forKey: Self.parallelTransfersKey)
+        }
+    }
+
     private static let appearanceKey = "FreeDroid.Appearance"
+    private static let parallelTransfersKey = "FreeDroid.ParallelTransfersPerDevice"
 
     public init() {
         let stored = UserDefaults.standard.string(forKey: Self.appearanceKey)
             ?? AppearanceMode.system.rawValue
         self.appearance = AppearanceMode(rawValue: stored) ?? .system
+        let parallelStored = UserDefaults.standard.integer(forKey: Self.parallelTransfersKey)
+        self.parallelTransfers = ParallelTransfers(rawValue: parallelStored) ?? .three
     }
 
     public func theme(for systemColorScheme: ColorScheme) -> Theme {
