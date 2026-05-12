@@ -1,21 +1,24 @@
 import Foundation
+import os
 import FreeDroidProviderShared
+
+private struct ConnectionBox: @unchecked Sendable {
+    var conn: NSXPCConnection?
+}
 
 final class ProviderTransport: @unchecked Sendable {
     let deviceID: DeviceID
-    private var connection: NSXPCConnection?
-    private let lock = NSLock()
+    private let state = OSAllocatedUnfairLock<ConnectionBox>(initialState: ConnectionBox(conn: nil))
 
     init(deviceID: DeviceID) {
         self.deviceID = deviceID
     }
 
     func invalidate() async {
-        lock.lock()
-        let conn = connection
-        connection = nil
-        lock.unlock()
-        conn?.invalidate()
+        state.withLock { box in
+            box.conn?.invalidate()
+            box.conn = nil
+        }
     }
 
     func list(_ path: RemotePath) async throws -> [RemoteEntry] {
@@ -100,16 +103,20 @@ final class ProviderTransport: @unchecked Sendable {
     }
 
     private func makeProxy() -> any XPCFileServerProtocol {
-        lock.lock()
-        defer { lock.unlock() }
-        if connection == nil {
-            let conn = NSXPCConnection(serviceName: XPCService.bundleIdentifier)
-            conn.remoteObjectInterface = NSXPCInterface(with: XPCFileServerProtocol.self)
-            conn.invalidationHandler = { [weak conn] in conn?.invalidate() }
-            conn.interruptionHandler = { [weak conn] in conn?.invalidate() }
-            conn.resume()
-            connection = conn
+        nonisolated(unsafe) var captured: NSXPCConnection!
+        state.withLock { box in
+            if let existing = box.conn {
+                captured = existing
+                return
+            }
+            let new = NSXPCConnection(serviceName: XPCService.bundleIdentifier)
+            new.remoteObjectInterface = NSXPCInterface(with: XPCFileServerProtocol.self)
+            new.invalidationHandler = { [weak new] in new?.invalidate() }
+            new.interruptionHandler = { [weak new] in new?.invalidate() }
+            new.resume()
+            box.conn = new
+            captured = new
         }
-        return connection!.remoteObjectProxy as! any XPCFileServerProtocol
+        return captured.remoteObjectProxy as! any XPCFileServerProtocol
     }
 }
