@@ -38,7 +38,7 @@
 		CDB36E2A36790755BF68BC27 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 3F063C78AD3C30DD568982EE /* Sparkle */; };
 		D2747BCB095555265F8373B5 /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBFEC0E106796BC745209F73 /* AppPreferences.swift */; };
 		D8A7DAB2C3C8303A6793E96D /* XPCFileServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B337F72A08ADE7E8C2C83700 /* XPCFileServer.swift */; };
-		DE259F620070F7AF6AEDF193 /* FreeDroidFS.bundle in Resources */ = {isa = PBXBuildFile; fileRef = E5D0F7F82112F320A115957D /* FreeDroidFS.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		DE259F620070F7AF6AEDF193 /* FreeDroidFS.fskitmodule in Resources */ = {isa = PBXBuildFile; fileRef = E5D0F7F82112F320A115957D /* FreeDroidFS.fskitmodule */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,7 +78,7 @@
 		C70708F3899D9DD04979DE3C /* FreeDroid.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FreeDroid.entitlements; sourceTree = "<group>"; };
 		E237E2C482ED6F959CEFC98B /* FreeDroid.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FreeDroid.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2B21BA991C5883C22B23076 /* Local.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig; sourceTree = "<group>"; };
-		E5D0F7F82112F320A115957D /* FreeDroidFS.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FreeDroidFS.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5D0F7F82112F320A115957D /* FreeDroidFS.fskitmodule */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FreeDroidFS.fskitmodule; sourceTree = BUILT_PRODUCTS_DIR; };
 		F68C86B168910F46DA6CB9E1 /* FreeDroid */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FreeDroid; path = .; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -195,7 +195,7 @@
 			isa = PBXGroup;
 			children = (
 				E237E2C482ED6F959CEFC98B /* FreeDroid.app */,
-				E5D0F7F82112F320A115957D /* FreeDroidFS.bundle */,
+				E5D0F7F82112F320A115957D /* FreeDroidFS.fskitmodule */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -237,7 +237,7 @@
 				AA0BE5FF5B0AC5A5F2D1C4E0 /* FreeDroidIPC */,
 			);
 			productName = FreeDroidFS;
-			productReference = E5D0F7F82112F320A115957D /* FreeDroidFS.bundle */;
+			productReference = E5D0F7F82112F320A115957D /* FreeDroidFS.fskitmodule */;
 			productType = "com.apple.product-type.bundle";
 		};
 		0F2D4783CE4520BC8446FBC5 /* FreeDroid */ = {
@@ -279,11 +279,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					055B557691E494BE6D6582F4 = {
-						DevelopmentTeam = YOUR_TEAM_ID_HERE;
 						ProvisioningStyle = Automatic;
 					};
 					0F2D4783CE4520BC8446FBC5 = {
-						DevelopmentTeam = YOUR_TEAM_ID_HERE;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -317,7 +315,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DE259F620070F7AF6AEDF193 /* FreeDroidFS.bundle in Resources */,
+				DE259F620070F7AF6AEDF193 /* FreeDroidFS.fskitmodule in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -376,12 +374,17 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = FreeDroid/FreeDroid.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = P47X2292CM;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = FreeDroid/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.merkost.freedroid;
@@ -399,8 +402,12 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = P47X2292CM;
 				INFOPLIST_FILE = FreeDroidFS/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACH_O_TYPE = mh_bundle;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.merkost.freedroid.FreeDroidFS;
@@ -421,8 +428,12 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = P47X2292CM;
 				INFOPLIST_FILE = FreeDroidFS/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACH_O_TYPE = mh_bundle;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.merkost.freedroid.FreeDroidFS;
@@ -442,12 +453,17 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = FreeDroid/FreeDroid.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = P47X2292CM;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = FreeDroid/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.merkost.freedroid;
