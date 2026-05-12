@@ -2,6 +2,7 @@ import SwiftUI
 import FreeDroidDomain
 import FreeDroidUI
 
+// swiftlint:disable:next type_body_length
 public struct FileBrowserView: View {
     @Environment(\.theme) private var theme
     @Bindable var viewModel: FileBrowserViewModel

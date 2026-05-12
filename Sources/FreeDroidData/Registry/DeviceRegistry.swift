@@ -11,6 +11,7 @@ private struct USBVendorProduct: Hashable, Sendable {
     let productID: UInt16
 }
 
+// swiftlint:disable:next type_body_length
 public actor DeviceRegistry {
     private var records: [DeviceID: DeviceRecord] = [:]
     private var consumers: [AsyncStream<[Device]>.Continuation] = []
@@ -190,7 +191,7 @@ public actor DeviceRegistry {
         guard !candidateTokens.isEmpty else { return false }
         for hint in adbHintedModels {
             let hintTokens = Self.tokens(in: hint)
-            if !candidateTokens.intersection(hintTokens).isEmpty { return true }
+            if !candidateTokens.isDisjoint(with: hintTokens) { return true }
         }
         return false
     }

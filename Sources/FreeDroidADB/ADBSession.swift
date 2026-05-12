@@ -46,11 +46,11 @@ public actor ADBSession: Transport {
     }
 
     private static let modifiedAtFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        f.dateFormat = "yyyy-MM-dd HH:mm"
-        return f
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
     }()
 
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
