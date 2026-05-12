@@ -39,8 +39,7 @@ targets:
         INFOPLIST_FILE: FreeDroid/Info.plist
         CODE_SIGN_ENTITLEMENTS: FreeDroid/FreeDroid.entitlements
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGNING_REQUIRED: NO
-        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: "Apple Development"
         ENABLE_HARDENED_RUNTIME: YES
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
@@ -68,7 +67,7 @@ targets:
         product: Sparkle
       - target: FreeDroidFS
         embed: true
-        codeSign: false
+        codeSign: true
 
   FreeDroidFS:
     type: bundle
@@ -82,8 +81,7 @@ targets:
         INFOPLIST_FILE: FreeDroidFS/Info.plist
         CODE_SIGN_ENTITLEMENTS: FreeDroidFS/FreeDroidFS.entitlements
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGNING_REQUIRED: NO
-        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGN_IDENTITY: "Apple Development"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         SKIP_INSTALL: YES
