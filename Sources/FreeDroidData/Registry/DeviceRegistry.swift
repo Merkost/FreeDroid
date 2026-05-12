@@ -157,7 +157,27 @@ public actor DeviceRegistry {
             ) ?? .adb
             guard kind == .adb else { continue }
             let session = ADBSession(deviceID: deviceID, serial: identifier, server: adbServer)
-            let deviceInfo = try await session.info
+            let deviceInfo: DeviceInfo
+            do {
+                deviceInfo = try await session.info
+            } catch {
+                registryLogger.error("getprop failed for \(identifier, privacy: .public): \(String(describing: error), privacy: .public) — emitting card with model fallback")
+                let fallbackModel = adbEntry.model ?? identifier
+                let fallback = Device(
+                    id: deviceID,
+                    displayName: fallbackModel,
+                    manufacturer: "",
+                    model: fallbackModel,
+                    storageCapacityBytes: nil,
+                    storageFreeBytes: nil,
+                    transport: .adb,
+                    connectionState: .ready
+                )
+                newRecords[deviceID] = DeviceRecord(device: fallback, transport: session)
+                recordADBDescriptors(forSerial: identifier)
+                emittedModels.append(fallbackModel)
+                continue
+            }
             let displayName = adbEntry.model ?? deviceInfo.model
             let deviceRecord = Device(
                 id: deviceID,
