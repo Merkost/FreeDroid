@@ -69,9 +69,6 @@ targets:
       - package: Sparkle
         product: Sparkle
       - sdk: NetFS.framework
-      - target: FreeDroidFS
-        embed: true
-        codeSign: true
       - target: FreeDroidProvider
         embed: true
         codeSign: true
@@ -101,35 +98,6 @@ targets:
     dependencies:
       - package: FreeDroidPackages
         product: FreeDroidProviderShared
-
-  FreeDroidFS:
-    type: extensionkit-extension
-    platform: macOS
-    deploymentTarget: "15.4"
-    sources:
-      - path: FreeDroidFS
-    configFiles:
-      Debug: Configs/Local.xcconfig
-      Release: Configs/Local.xcconfig
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.merkost.freedroid.FreeDroidFS
-        INFOPLIST_FILE: FreeDroidFS/Info.plist
-        CODE_SIGN_ENTITLEMENTS: FreeDroidFS/FreeDroidFS.entitlements
-        CODE_SIGN_STYLE: Automatic
-        CODE_SIGN_IDENTITY: "Apple Development"
-        ENABLE_HARDENED_RUNTIME: YES
-        SWIFT_VERSION: "6.0"
-        SWIFT_STRICT_CONCURRENCY: complete
-        SKIP_INSTALL: YES
-        PRODUCT_NAME: FreeDroidFS
-        MACOSX_DEPLOYMENT_TARGET: "15.4"
-        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../../../Frameworks"
-    dependencies:
-      - package: FreeDroidPackages
-        product: FreeDroidDomain
-      - package: FreeDroidPackages
-        product: FreeDroidIPC
 
 schemes:
   FreeDroid:
