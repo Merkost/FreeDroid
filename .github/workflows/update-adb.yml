@@ -1,0 +1,40 @@
+name: Update adb binary
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: macos-15
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download latest Platform-Tools
+        run: |
+          curl -L -o /tmp/platform-tools.zip \
+            https://dl.google.com/android/repository/platform-tools-latest-darwin.zip
+          unzip -q /tmp/platform-tools.zip -d /tmp/
+          cp /tmp/platform-tools/adb Packages/FreeDroidADB/Resources/adb
+          chmod +x Packages/FreeDroidADB/Resources/adb
+
+      - name: Verify adb binary
+        run: Packages/FreeDroidADB/Resources/adb --version
+
+      - name: Run ADB unit tests
+        run: |
+          cd Packages/FreeDroidADB
+          swift test --parallel
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/update-adb
+          commit-message: "chore(adb): update bundled adb binary"
+          title: "chore(adb): update bundled adb binary"
+          body: "Weekly bot pulled latest Android Platform-Tools."
