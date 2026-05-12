@@ -101,12 +101,54 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         basedOn itemTemplate: NSFileProviderItem,
         fields: NSFileProviderItemFields,
         contents url: URL?,
-        options: NSFileProviderCreateItemOptions,
+        options: NSFileProviderCreateItemOptions = [],
         request: NSFileProviderRequest,
-        completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, (any Error)?) -> Void
+        completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
     ) -> Progress {
-        completionHandler(nil, [], false, NSFileProviderError(.noSuchItem) as NSError)
-        return Progress()
+        nonisolated(unsafe) let handler = completionHandler
+        nonisolated(unsafe) let progress = Progress(totalUnitCount: 1)
+        let parentIdentifier = itemTemplate.parentItemIdentifier
+        let filename = itemTemplate.filename
+        let contentType = itemTemplate.contentType
+        Task {
+            do {
+                let parent = try resolveParent(parentIdentifier)
+                let newPath = parent.appending(filename)
+                if contentType == .folder {
+                    _ = try await bridge.send(.mkdir(deviceID: deviceID, path: newPath), expecting: Data.self)
+                } else if let url {
+                    let data = try Data(contentsOf: url)
+                    _ = try await bridge.send(
+                        .write(deviceID: deviceID, path: newPath, data: data, offset: 0),
+                        expecting: Data.self
+                    )
+                } else {
+                    _ = try await bridge.send(
+                        .write(deviceID: deviceID, path: newPath, data: Data(), offset: 0),
+                        expecting: Data.self
+                    )
+                }
+                let entry = try await bridge.send(
+                    .stat(deviceID: deviceID, path: newPath),
+                    expecting: RemoteEntry.self
+                )
+                progress.completedUnitCount = 1
+                handler(ProviderItem(entry: entry, parent: parent), [], false, nil)
+            } catch let error as TransportError {
+                handler(nil, [], false, ProviderError.map(error))
+            } catch {
+                handler(nil, [], false, error)
+            }
+        }
+        return progress
+    }
+
+    private func resolveParent(_ identifier: NSFileProviderItemIdentifier) throws -> RemotePath {
+        if identifier == .rootContainer { return .root }
+        guard let path = ItemIdentifier.decode(identifier.rawValue) else {
+            throw NSFileProviderError(.noSuchItem)
+        }
+        return path
     }
 
     func modifyItem(
