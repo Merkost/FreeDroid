@@ -1,10 +1,10 @@
 # FreeDroid
 
-The free, open-source way to mount Android devices as native Finder volumes on macOS.
+The free, open-source way to browse Android devices directly from Finder on macOS.
 
-A modern alternative to [MacDroid](https://www.macdroid.app/) built on Apple's FSKit framework. Plug your phone in, see it in Finder, drag files in either direction.
+A modern alternative to [MacDroid](https://www.macdroid.app/) built on Apple's File Provider framework. Plug your phone in, authorize USB debugging, and it appears in Finder's Locations sidebar — drag files in either direction.
 
-> **Status:** Pre-alpha. The app builds, signs, and runs end-to-end on macOS 15.4+. Native Finder-mount integration is gated behind Apple's `com.apple.developer.fskit.fsmodule` entitlement (see [Signing](#signing) below).
+> **Status:** Pre-alpha. The app builds, signs, and runs end-to-end on macOS 15.4+.
 
 ## Features
 
@@ -13,8 +13,8 @@ A modern alternative to [MacDroid](https://www.macdroid.app/) built on Apple's F
   - **MTP** — works without dev options, via libmtp (LGPL, dynamically linked)
   - Auto-selects ADB when authorized, falls back to MTP
 - **Two ways to browse**
-  - In-app file browser and photo gallery (no entitlement needed)
-  - Native Finder mount under `/Volumes/<Device>` via FSKit (entitlement required)
+  - In-app file browser and photo gallery
+  - Native Finder integration — device appears in Finder Locations sidebar automatically via NSFileProvider
 - **Multi-device** — handle several phones simultaneously, each as its own volume
 - **Photo gallery** — masonry grid with thumbnails, date sections, Quick Look
 - **Premium UI** — light + dark themes, living device cards, liquid transfer progress, floating command strip
@@ -36,7 +36,7 @@ brew install swiftlint xcodegen
 Scripts/generate-project.sh
 ```
 
-Open `FreeDroid.xcworkspace`, then **⌘B**. The scheme's post-action automatically installs the built app to `/Applications/FreeDroid.app` and re-registers the FSKit extension.
+Open `FreeDroid.xcworkspace`, then **⌘B**. The scheme's post-action automatically installs the built app to `/Applications/FreeDroid.app` and re-registers the File Provider extension.
 
 ## Signing
 
@@ -48,7 +48,7 @@ Configs/Local.xcconfig
 # Replace YOUR_TEAM_ID_HERE with your Apple Developer Team ID
 ```
 
-For native Finder integration you'll need the `com.apple.developer.fskit.fsmodule` entitlement, granted by Apple Developer Support upon request. Without it the in-app file browser, gallery, and transfer features still work — only the `/Volumes/` mount is gated.
+No special entitlement is required for Finder integration. The File Provider framework (`NSFileProviderReplicatedExtension`) is available to any sandboxed app signed with a standard Apple Developer account.
 
 ## Architecture
 
@@ -56,8 +56,8 @@ For native Finder integration you'll need the `com.apple.developer.fskit.fsmodul
 - Domain → Data → Presentation layers strictly enforced
 - Swift 6 with strict concurrency from day one
 - Single root `Package.swift` containing 10 library products (`FreeDroidDomain`, `FreeDroidUI`, `FreeDroidADB`, `FreeDroidMTP`, `FreeDroidData`, `FreeDroidIPC`, plus 4 feature packages)
-- `FreeDroid.app` — main SwiftUI host
-- `FreeDroidFS.appex` — ExtensionKit-based FSKit module (the Finder mount provider)
+- `FreeDroid.app` — main SwiftUI host; runs `ProviderDomainCoordinator` which registers one `NSFileProviderDomain` per authorized device
+- `FreeDroidProviderExtension.appex` — `NSFileProviderReplicatedExtension` (the Finder Locations provider)
 
 Full design at [`docs/superpowers/specs/2026-05-12-freedroid-design.md`](docs/superpowers/specs/2026-05-12-freedroid-design.md).
 
@@ -65,7 +65,6 @@ Full design at [`docs/superpowers/specs/2026-05-12-freedroid-design.md`](docs/su
 
 ```
 FreeDroid/              SwiftUI app target
-FreeDroidFS/            FSKit extension (.appex)
 Sources/                Swift packages (Domain, UI, ADB, MTP, Data, IPC, Features)
 Tests/                  Per-module test targets
 Vendor/                 Pre-built libmtp + libusb xcframeworks
