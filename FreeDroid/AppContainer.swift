@@ -72,7 +72,8 @@ final class AppContainer {
             browseFolder: BrowseFolderUseCase(fileRepository: fileRepo),
             renameFile: RenameFileUseCase(fileRepository: fileRepo),
             deleteFiles: DeleteFilesUseCase(fileRepository: fileRepo),
-            createFolder: CreateFolderUseCase(fileRepository: fileRepo)
+            createFolder: CreateFolderUseCase(fileRepository: fileRepo),
+            downloadToTemp: DownloadToTempUseCase(fileRepository: fileRepo)
         )
     }
 

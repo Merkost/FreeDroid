@@ -77,6 +77,18 @@ public struct FileBrowserView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .background(
+            FileBrowserQLPresenter(url: $viewModel.previewURL)
+                .frame(width: 0, height: 0)
+        )
+        .overlay(alignment: .center) {
+            if viewModel.isPreparing {
+                ZStack {
+                    Color.black.opacity(0.18).ignoresSafeArea()
+                    Spinner(size: 28)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -180,6 +192,8 @@ public struct FileBrowserView: View {
             viewModel.toggleSelection(entry.path)
         } else if entry.kind == .directory {
             Task { await viewModel.navigate(to: entry.path) }
+        } else if QuickLookEligibility.isPreviewable(entry.name) {
+            viewModel.previewFile(entry)
         } else {
             viewModel.selectOnly(entry.path)
         }

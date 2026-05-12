@@ -14,24 +14,55 @@ public final class FileBrowserViewModel {
     public private(set) var isLoading = false
     public private(set) var loadStartedAt: Date?
     public private(set) var lastError: TransportError?
+    public var previewURL: URL?
+    public private(set) var isPreparing = false
 
     private let browseFolderUseCase: BrowseFolderUseCase
     private let renameFileUseCase: RenameFileUseCase
     private let deleteFilesUseCase: DeleteFilesUseCase
     private let createFolderUseCase: CreateFolderUseCase
+    private let downloadToTempUseCase: DownloadToTempUseCase?
+    private var previewTask: Task<Void, Never>?
 
     public init(
         initialPath: RemotePath = .root,
         browseFolder: BrowseFolderUseCase,
         renameFile: RenameFileUseCase,
         deleteFiles: DeleteFilesUseCase,
-        createFolder: CreateFolderUseCase
+        createFolder: CreateFolderUseCase,
+        downloadToTemp: DownloadToTempUseCase? = nil
     ) {
         self.path = initialPath
         self.browseFolderUseCase = browseFolder
         self.renameFileUseCase = renameFile
         self.deleteFilesUseCase = deleteFiles
         self.createFolderUseCase = createFolder
+        self.downloadToTempUseCase = downloadToTemp
+    }
+
+    public func previewFile(_ entry: RemoteEntry) {
+        guard let downloader = downloadToTempUseCase else { return }
+        previewTask?.cancel()
+        previewURL = nil
+        isPreparing = true
+        previewTask = Task { [weak self] in
+            defer { Task { @MainActor in self?.isPreparing = false } }
+            do {
+                let url = try await downloader(entry: entry)
+                guard !Task.isCancelled else { return }
+                self?.previewURL = url
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.lastError = .ioFailure(message: String(describing: error))
+            }
+        }
+    }
+
+    public func dismissPreview() {
+        previewTask?.cancel()
+        previewTask = nil
+        previewURL = nil
+        isPreparing = false
     }
 
     public var breadcrumb: [String] {
