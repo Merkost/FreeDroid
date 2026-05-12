@@ -31,4 +31,15 @@ extension Data {
             $0.loadUnaligned(as: UInt32.self).littleEndian
         }
     }
+
+    func readU64LE(at offset: Int) -> UInt64 {
+        guard count >= offset + 8 else { return 0 }
+        return subdata(in: offset..<offset + 8).withUnsafeBytes {
+            $0.loadUnaligned(as: UInt64.self).littleEndian
+        }
+    }
+
+    func readI64LE(at offset: Int) -> Int64 {
+        Int64(bitPattern: readU64LE(at: offset))
+    }
 }

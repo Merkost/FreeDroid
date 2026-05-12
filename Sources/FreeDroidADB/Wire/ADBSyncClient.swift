@@ -135,12 +135,25 @@ public actor ADBSyncClient {
 
         let id = try await connection.readBytes(4)
         let idStr = String(decoding: id, as: UTF8.self)
-        let length = try await connection.readU32LE()
         switch idStr {
         case "STA2":
-            let entry = try await readSta2Entry(path: remotePath, length: Int(length))
-            return entry
+            let body = try await connection.readBytes(SyncV2Stat.wireSize - 4)
+            var combined = Data()
+            combined.append(id)
+            combined.append(body)
+            let stat = try SyncV2Stat.decode(idAndBody: combined)
+            return SyncEntry(
+                name: (remotePath as NSString).lastPathComponent,
+                mode: stat.mode,
+                size: stat.size,
+                uid: stat.uid,
+                gid: stat.gid,
+                atime: UInt64(bitPattern: stat.atime),
+                mtime: UInt64(bitPattern: stat.mtime),
+                ctime: UInt64(bitPattern: stat.ctime)
+            )
         case "FAIL":
+            let length = try await connection.readU32LE()
             let msg = try await connection.readString(Int(length))
             throw ADBWireError.syncFailed(msg)
         default:
@@ -149,46 +162,6 @@ public actor ADBSyncClient {
                 firstBytes: Array(id)
             )
         }
-    }
-
-    private func readSta2Entry(path: String, length: Int) async throws -> SyncEntry {
-        let payload = try await connection.readBytes(length)
-        guard payload.count >= 24 else {
-            throw ADBWireError.framingViolation(
-                context: "STA2 payload < 24 bytes (got \(payload.count))",
-                firstBytes: Array(payload.prefix(16))
-            )
-        }
-        let mode = payload.readU32LE(at: 0)
-        let size64 = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 16 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 8, as: UInt64.self).littleEndian
-        }
-        let uid = payload.readU32LE(at: 16)
-        let gid = payload.readU32LE(at: 20)
-        let atime = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 32 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 24, as: UInt64.self).littleEndian
-        }
-        let mtime = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 40 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 32, as: UInt64.self).littleEndian
-        }
-        let ctime = payload.withUnsafeBytes { ptr -> UInt64 in
-            guard ptr.count >= 48 else { return 0 }
-            return ptr.loadUnaligned(fromByteOffset: 40, as: UInt64.self).littleEndian
-        }
-        let name = (path as NSString).lastPathComponent
-        return SyncEntry(
-            name: name,
-            mode: mode,
-            size: size64,
-            uid: uid,
-            gid: gid,
-            atime: atime,
-            mtime: mtime,
-            ctime: ctime
-        )
     }
 
     public func recv(remotePath: String, to localURL: URL, progress: TransferProgressSink?) async throws -> Int64 {
