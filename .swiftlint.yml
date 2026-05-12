@@ -18,6 +18,8 @@ excluded:
   - Packages/FreeDroidData/.swiftpm
   - Packages/Features/DeviceManagement/.build
   - Packages/Features/DeviceManagement/.swiftpm
+  - Packages/Features/FileBrowser/.build
+  - Packages/Features/FileBrowser/.swiftpm
 
 opt_in_rules:
   - empty_count
