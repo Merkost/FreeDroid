@@ -7,6 +7,7 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 REPO_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 BUILD_DIR="$REPO_ROOT/build/libmtp"
 OUTPUT="$REPO_ROOT/Vendor/libmtp.xcframework"
+OUTPUT_LIBUSB="$REPO_ROOT/Vendor/libusb.xcframework"
 
 require() {
   command -v "$1" >/dev/null 2>&1 || { echo "Missing: $1"; exit 1; }
@@ -71,6 +72,40 @@ build_for_arch() {
   popd
 }
 
+create_xcframeworks() {
+  local LIBMTP_DYLIB="$1"   # path to universal libmtp dylib
+  local LIBUSB_DYLIB="$2"   # path to universal libusb dylib
+
+  # Fix install names on universal libusb
+  install_name_tool -id "@rpath/libusb-1.0.0.dylib" "$LIBUSB_DYLIB"
+
+  # Fix libmtp's references to libusb from absolute build paths to @rpath
+  local OLD_ARM64
+  local OLD_X86
+  OLD_ARM64=$(otool -L "$LIBMTP_DYLIB" | grep "install-arm64.*libusb" | awk '{print $1}' | head -1)
+  OLD_X86=$(otool -L "$LIBMTP_DYLIB" | grep "install-x86_64.*libusb" | awk '{print $1}' | head -1)
+  [ -n "$OLD_ARM64" ] && install_name_tool -change "$OLD_ARM64" "@rpath/libusb-1.0.0.dylib" "$LIBMTP_DYLIB"
+  [ -n "$OLD_X86" ]   && install_name_tool -change "$OLD_X86"   "@rpath/libusb-1.0.0.dylib" "$LIBMTP_DYLIB"
+
+  echo "==> libmtp linkage after fix:"
+  otool -L "$LIBMTP_DYLIB" | head -8
+
+  # Create libmtp xcframework
+  rm -rf "$OUTPUT"
+  xcodebuild -create-xcframework \
+    -library "$LIBMTP_DYLIB" \
+    -headers "$BUILD_DIR/install-arm64/include" \
+    -output "$OUTPUT"
+  echo "Built $OUTPUT"
+
+  # Create libusb xcframework
+  rm -rf "$OUTPUT_LIBUSB"
+  xcodebuild -create-xcframework \
+    -library "$LIBUSB_DYLIB" \
+    -output "$OUTPUT_LIBUSB"
+  echo "Built $OUTPUT_LIBUSB"
+}
+
 # Detect host architecture
 HOST_ARCH="$(uname -m)"
 echo "Host architecture: $HOST_ARCH"
@@ -83,7 +118,7 @@ build_for_arch arm64
 if [ "$HOST_ARCH" = "arm64" ]; then
   echo "==> Attempting x86_64 build (cross-compilation on Apple Silicon)..."
   if build_for_arch x86_64 2>&1; then
-    echo "==> x86_64 build succeeded, creating universal binary"
+    echo "==> x86_64 build succeeded, creating universal binaries"
     mkdir -p "$BUILD_DIR/universal/lib"
     lipo -create \
       "$BUILD_DIR/install-arm64/lib/libmtp.9.dylib" \
@@ -91,22 +126,25 @@ if [ "$HOST_ARCH" = "arm64" ]; then
       -output "$BUILD_DIR/universal/lib/libmtp.dylib"
     install_name_tool -id "@rpath/libmtp.dylib" "$BUILD_DIR/universal/lib/libmtp.dylib"
 
-    rm -rf "$OUTPUT"
-    xcodebuild -create-xcframework \
-      -library "$BUILD_DIR/universal/lib/libmtp.dylib" \
-      -headers "$BUILD_DIR/install-arm64/include" \
-      -output "$OUTPUT"
+    lipo -create \
+      "$BUILD_DIR/install-arm64/lib/libusb-1.0.0.dylib" \
+      "$BUILD_DIR/install-x86_64/lib/libusb-1.0.0.dylib" \
+      -output "$BUILD_DIR/universal/lib/libusb-1.0.0.dylib"
+
+    create_xcframeworks \
+      "$BUILD_DIR/universal/lib/libmtp.dylib" \
+      "$BUILD_DIR/universal/lib/libusb-1.0.0.dylib"
   else
     echo "==> x86_64 cross-compilation failed (expected on Apple Silicon). Shipping arm64-only."
     mkdir -p "$BUILD_DIR/arm64only/lib"
     cp "$BUILD_DIR/install-arm64/lib/libmtp.9.dylib" "$BUILD_DIR/arm64only/lib/libmtp.dylib"
     install_name_tool -id "@rpath/libmtp.dylib" "$BUILD_DIR/arm64only/lib/libmtp.dylib"
 
-    rm -rf "$OUTPUT"
-    xcodebuild -create-xcframework \
-      -library "$BUILD_DIR/arm64only/lib/libmtp.dylib" \
-      -headers "$BUILD_DIR/install-arm64/include" \
-      -output "$OUTPUT"
+    cp "$BUILD_DIR/install-arm64/lib/libusb-1.0.0.dylib" "$BUILD_DIR/arm64only/lib/libusb-1.0.0.dylib"
+
+    create_xcframeworks \
+      "$BUILD_DIR/arm64only/lib/libmtp.dylib" \
+      "$BUILD_DIR/arm64only/lib/libusb-1.0.0.dylib"
   fi
 else
   # On x86_64 host, also build x86_64 and create universal
@@ -119,11 +157,12 @@ else
     -output "$BUILD_DIR/universal/lib/libmtp.dylib"
   install_name_tool -id "@rpath/libmtp.dylib" "$BUILD_DIR/universal/lib/libmtp.dylib"
 
-  rm -rf "$OUTPUT"
-  xcodebuild -create-xcframework \
-    -library "$BUILD_DIR/universal/lib/libmtp.dylib" \
-    -headers "$BUILD_DIR/install-arm64/include" \
-    -output "$OUTPUT"
-fi
+  lipo -create \
+    "$BUILD_DIR/install-arm64/lib/libusb-1.0.0.dylib" \
+    "$BUILD_DIR/install-x86_64/lib/libusb-1.0.0.dylib" \
+    -output "$BUILD_DIR/universal/lib/libusb-1.0.0.dylib"
 
-echo "Built $OUTPUT"
+  create_xcframeworks \
+    "$BUILD_DIR/universal/lib/libmtp.dylib" \
+    "$BUILD_DIR/universal/lib/libusb-1.0.0.dylib"
+fi

@@ -72,9 +72,13 @@ let package = Package(
             name: "libmtp",
             path: "Vendor/libmtp.xcframework"
         ),
+        .binaryTarget(
+            name: "libusb",
+            path: "Vendor/libusb.xcframework"
+        ),
         .target(
             name: "CLibmtp",
-            dependencies: ["libmtp"],
+            dependencies: ["libmtp", "libusb"],
             publicHeadersPath: ".",
             cSettings: [
                 .headerSearchPath("."),
