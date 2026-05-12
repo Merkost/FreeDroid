@@ -13,10 +13,10 @@ struct GalleryDateFormatterTests {
         #expect(formatter.label(for: today) == "Today")
     }
 
-    @Test func yesterdayLabel() {
+    @Test func yesterdayLabel() throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: now))
         let formatter = GalleryDateFormatter(calendar: calendar, now: { now })
         #expect(formatter.label(for: yesterday) == "Yesterday")
     }

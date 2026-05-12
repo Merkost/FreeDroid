@@ -20,6 +20,8 @@ excluded:
   - Packages/Features/DeviceManagement/.swiftpm
   - Packages/Features/FileBrowser/.build
   - Packages/Features/FileBrowser/.swiftpm
+  - Packages/Features/Gallery/.build
+  - Packages/Features/Gallery/.swiftpm
 
 opt_in_rules:
   - empty_count

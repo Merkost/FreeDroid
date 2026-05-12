@@ -5,10 +5,10 @@ import FreeDroidDomain
 
 @Suite("MediaGrouper")
 struct MediaGrouperTests {
-    @Test func groupsByDay() {
+    @Test func groupsByDay() throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = Date(timeIntervalSince1970: 1_700_000_000)
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: now))
         let items = [
             item(now, name: "a"),
             item(now.addingTimeInterval(3600), name: "b"),
