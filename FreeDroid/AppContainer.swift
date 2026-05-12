@@ -69,6 +69,7 @@ final class AppContainer {
     func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {
         let fileRepo = FileRepositoryImpl(registry: registry, cache: listingCache, deviceID: deviceID)
         return FileBrowserViewModel(
+            initialPath: RemotePath(raw: "/sdcard"),
             browseFolder: BrowseFolderUseCase(fileRepository: fileRepo),
             renameFile: RenameFileUseCase(fileRepository: fileRepo),
             deleteFiles: DeleteFilesUseCase(fileRepository: fileRepo),

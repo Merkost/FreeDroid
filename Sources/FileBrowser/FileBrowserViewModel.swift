@@ -19,11 +19,13 @@ public final class FileBrowserViewModel {
     private let createFolderUseCase: CreateFolderUseCase
 
     public init(
+        initialPath: RemotePath = .root,
         browseFolder: BrowseFolderUseCase,
         renameFile: RenameFileUseCase,
         deleteFiles: DeleteFilesUseCase,
         createFolder: CreateFolderUseCase
     ) {
+        self.path = initialPath
         self.browseFolderUseCase = browseFolder
         self.renameFileUseCase = renameFile
         self.deleteFilesUseCase = deleteFiles
