@@ -3,6 +3,7 @@ import Foundation
 public actor ADBServer {
     private let runner: any ADBRunner
     private var isRunning = false
+    private var cachedFeatures: Set<String>?
 
     public init(runner: any ADBRunner) {
         self.runner = runner
@@ -22,12 +23,21 @@ public actor ADBServer {
     public func stop() async {
         guard isRunning else { return }
         _ = try? await runner.run(.killServer, timeout: .seconds(5))
+        cachedFeatures = nil
         isRunning = false
     }
 
     public func listDevices() async throws -> [ADBDeviceListEntry] {
         let output = try await runner.run(.listDevices, timeout: .seconds(5))
         return ADBOutputParser.parseDeviceList(output.stdout)
+    }
+
+    public func features() async throws -> Set<String> {
+        if let cached = cachedFeatures { return cached }
+        let output = try await runner.run(.hostFeatures, timeout: .seconds(5))
+        let parsed = ADBOutputParser.parseFeatures(output.stdout)
+        cachedFeatures = parsed
+        return parsed
     }
 
     public func runner(for serial: String) -> any ADBRunner {

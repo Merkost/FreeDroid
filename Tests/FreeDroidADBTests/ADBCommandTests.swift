@@ -34,4 +34,28 @@ struct ADBCommandTests {
         let cmd = ADBCommand.getProp(serial: "ABC123", property: "ro.product.model")
         #expect(cmd.arguments == ["-s", "ABC123", "shell", "getprop", "ro.product.model"])
     }
+
+    @Test func hostFeaturesProducesCorrectArgs() {
+        #expect(ADBCommand.hostFeatures.arguments == ["host-features"])
+    }
+
+    @Test func pullWithCompressionAddsZstdFlag() {
+        let cmd = ADBCommand.pull(serial: "ABC123", remote: "/sdcard/x", local: "/tmp/x", compressed: true)
+        #expect(cmd.arguments == ["-s", "ABC123", "pull", "-z", "zstd", "/sdcard/x", "/tmp/x"])
+    }
+
+    @Test func pullWithoutCompressionOmitsFlag() {
+        let cmd = ADBCommand.pull(serial: "ABC123", remote: "/sdcard/x", local: "/tmp/x", compressed: false)
+        #expect(cmd.arguments == ["-s", "ABC123", "pull", "/sdcard/x", "/tmp/x"])
+    }
+
+    @Test func pushWithCompressionAddsZstdFlag() {
+        let cmd = ADBCommand.push(serial: "ABC123", local: "/tmp/x", remote: "/sdcard/x", compressed: true)
+        #expect(cmd.arguments == ["-s", "ABC123", "push", "-z", "zstd", "/tmp/x", "/sdcard/x"])
+    }
+
+    @Test func pushWithoutCompressionOmitsFlag() {
+        let cmd = ADBCommand.push(serial: "ABC123", local: "/tmp/x", remote: "/sdcard/x", compressed: false)
+        #expect(cmd.arguments == ["-s", "ABC123", "push", "/tmp/x", "/sdcard/x"])
+    }
 }
