@@ -29,6 +29,9 @@ struct ContentView: View {
                             deviceFractions: container.transfersViewModel.deviceFractions,
                             onRevealInFinder: { device in
                                 FinderRevealer.revealTransferDestination(for: device.displayName)
+                            },
+                            onShowInFinder: { device in
+                                Task { await ProviderRevealer.revealInFinder(deviceID: device.id) }
                             }
                         )
                         appearanceMenu

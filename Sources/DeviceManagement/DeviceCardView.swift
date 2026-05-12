@@ -7,15 +7,18 @@ public struct DeviceCardView: View {
     private let viewModel: DeviceCardViewModel
     private let isSelected: Bool
     private let onRevealInFinder: () -> Void
+    private let onShowInFinder: () -> Void
 
     public init(
         viewModel: DeviceCardViewModel,
         isSelected: Bool,
-        onRevealInFinder: @escaping () -> Void
+        onRevealInFinder: @escaping () -> Void,
+        onShowInFinder: @escaping () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.isSelected = isSelected
         self.onRevealInFinder = onRevealInFinder
+        self.onShowInFinder = onShowInFinder
     }
 
     public var body: some View {
@@ -55,6 +58,9 @@ public struct DeviceCardView: View {
         .opacity(viewModel.isReady ? 1.0 : 0.65)
         .allowsHitTesting(viewModel.isReady)
         .contextMenu {
+            Button("Show in Finder") {
+                onShowInFinder()
+            }
             Button("Reveal Transfers in Finder") {
                 onRevealInFinder()
             }

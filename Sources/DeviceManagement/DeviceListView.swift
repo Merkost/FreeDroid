@@ -7,15 +7,18 @@ public struct DeviceListView: View {
     @Bindable var viewModel: DeviceListViewModel
     var deviceFractions: [DeviceID: Double]
     var onRevealInFinder: (Device) -> Void
+    var onShowInFinder: (Device) -> Void
 
     public init(
         viewModel: DeviceListViewModel,
         deviceFractions: [DeviceID: Double] = [:],
-        onRevealInFinder: @escaping (Device) -> Void = { _ in }
+        onRevealInFinder: @escaping (Device) -> Void = { _ in },
+        onShowInFinder: @escaping (Device) -> Void = { _ in }
     ) {
         self.viewModel = viewModel
         self.deviceFractions = deviceFractions
         self.onRevealInFinder = onRevealInFinder
+        self.onShowInFinder = onShowInFinder
     }
 
     public var body: some View {
@@ -35,7 +38,8 @@ public struct DeviceListView: View {
                                 device: device,
                                 isSelected: device.id == viewModel.selectedID,
                                 transferFraction: deviceFractions[device.id],
-                                onRevealInFinder: { onRevealInFinder(device) }
+                                onRevealInFinder: { onRevealInFinder(device) },
+                                onShowInFinder: { onShowInFinder(device) }
                             )
                             .id(device.id)
                             .onTapGesture { viewModel.select(device.id) }
@@ -59,6 +63,7 @@ private struct DeviceCardRow: View {
     let isSelected: Bool
     let transferFraction: Double?
     let onRevealInFinder: () -> Void
+    let onShowInFinder: () -> Void
 
     @State private var cardViewModel: DeviceCardViewModel?
 
@@ -67,7 +72,8 @@ private struct DeviceCardRow: View {
         DeviceCardView(
             viewModel: vm,
             isSelected: isSelected,
-            onRevealInFinder: onRevealInFinder
+            onRevealInFinder: onRevealInFinder,
+            onShowInFinder: onShowInFinder
         )
         .task(id: device.id) {
             if cardViewModel == nil {
