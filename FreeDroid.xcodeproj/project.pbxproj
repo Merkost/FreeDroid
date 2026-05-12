@@ -17,6 +17,7 @@
 		3278C3198C53F58DFACC10D6 /* FolderEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A644786225C9D7F2AC18BB /* FolderEnumerator.swift */; };
 		3642D7F759D3E49B1389B305 /* Transfer in Frameworks */ = {isa = PBXBuildFile; productRef = CBDC59F94B320EDB2516806E /* Transfer */; };
 		477BD63C6959BFA726BBD190 /* FreeDroidProviderExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60243A85985D41334BD8D80B /* FreeDroidProviderExtension.swift */; };
+		4C45B1EE4FD6A431EA8F3112 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 326736AC13C0CDD967C4B967 /* Assets.xcassets */; };
 		4ED5736673B2DCFAD20173F2 /* FinderRevealer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD6795936653DA5827425B0 /* FinderRevealer.swift */; };
 		571A2059EF9FDE8A649743FD /* Gallery in Frameworks */ = {isa = PBXBuildFile; productRef = 594B36AD92E2239E5EE68DE7 /* Gallery */; };
 		5B90DC5C67360A0823149427 /* FreeDroidUI in Frameworks */ = {isa = PBXBuildFile; productRef = AAD96F97F35314685AA84700 /* FreeDroidUI */; };
@@ -64,6 +65,7 @@
 /* Begin PBXFileReference section */
 		081861D6A5CE52E2FDA0F2DB /* FreeDroidProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FreeDroidProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		162884523BB388FF94563842 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = System/Library/Frameworks/NetFS.framework; sourceTree = SDKROOT; };
+		326736AC13C0CDD967C4B967 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3BD6795936653DA5827425B0 /* FinderRevealer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderRevealer.swift; sourceTree = "<group>"; };
 		4795F8F26599DDE1A0E94313 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5071D75D2B91AB13F51FB3A8 /* FreeDroidProvider.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FreeDroidProvider.entitlements; sourceTree = "<group>"; };
@@ -162,6 +164,7 @@
 			children = (
 				27C6E4C9ACB16100EBF7063A /* IPC */,
 				3ACEB53CC4F112D8594BD3EE /* Provider */,
+				9B277D58F737C0E70D390FAB /* Resources */,
 				DA10B5DDA2F7090F189EF911 /* Settings */,
 				98E96432ED2DC45D1913402C /* UI */,
 				69AE9B1C3C39145FAC2C2FFC /* AppContainer.swift */,
@@ -180,6 +183,14 @@
 				90000A645CC050F3EA5A5423 /* SystemSettingsLauncher.swift */,
 			);
 			path = UI;
+			sourceTree = "<group>";
+		};
+		9B277D58F737C0E70D390FAB /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				326736AC13C0CDD967C4B967 /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		9DEA7505645882CF71E6C48B /* FreeDroidProvider */ = {
@@ -237,6 +248,7 @@
 			buildConfigurationList = 6F3E84D5F3043B6DCF0C1198 /* Build configuration list for PBXNativeTarget "FreeDroid" */;
 			buildPhases = (
 				FD8D16C1A5CFDA6CF645C7C8 /* Sources */,
+				AD89A5015587A75204E76627 /* Resources */,
 				082C5ADF3A3E18B7100DABD6 /* Frameworks */,
 				A4DEEF7711E34BD3E32445C1 /* Embed Foundation Extensions */,
 			);
@@ -322,6 +334,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AD89A5015587A75204E76627 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C45B1EE4FD6A431EA8F3112 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		26EEDE45862D1CC9F8954D7F /* Sources */ = {
