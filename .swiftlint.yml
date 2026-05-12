@@ -1,0 +1,41 @@
+included:
+  - FreeDroid
+  - Packages
+
+excluded:
+  - .build
+  - .swiftpm
+  - DerivedData
+
+opt_in_rules:
+  - empty_count
+  - empty_string
+  - explicit_init
+  - first_where
+  - force_unwrapping
+  - implicit_return
+  - prohibited_super_call
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - toggle_bool
+
+disabled_rules:
+  - line_length
+  - trailing_comma
+
+force_cast: error
+force_try: error
+force_unwrapping: error
+
+custom_rules:
+  no_inline_comments:
+    name: "No inline comments"
+    regex: '^\s*//(?!\s*(MARK:|swiftlint:|TODO:|FIXME:|http|/))'
+    message: "Code should be self-documenting. Use DocC /// on public API only."
+    severity: warning
+  no_print:
+    name: "No print statements"
+    regex: '\bprint\('
+    match_kinds: identifier
+    message: "Use os.Logger, not print."
+    severity: error
