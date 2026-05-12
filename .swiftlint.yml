@@ -6,6 +6,10 @@ excluded:
   - .build
   - .swiftpm
   - DerivedData
+  - Packages/FreeDroidDomain/.build
+  - Packages/FreeDroidDomain/.swiftpm
+  - Packages/FreeDroidUI/.build
+  - Packages/FreeDroidUI/.swiftpm
 
 opt_in_rules:
   - empty_count
@@ -30,7 +34,7 @@ force_unwrapping: error
 custom_rules:
   no_inline_comments:
     name: "No inline comments"
-    regex: '^\s*//(?!\s*(MARK:|swiftlint:|TODO:|FIXME:|http|/))'
+    regex: '^\s*//(?!\s*(MARK:|swiftlint:|TODO:|FIXME:|http|swift-tools-version|/))'
     message: "Code should be self-documenting. Use DocC /// on public API only."
     severity: warning
   no_print:

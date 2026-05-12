@@ -4,11 +4,11 @@ import Testing
 @Suite("DeviceID")
 struct DeviceIDTests {
     @Test func equalityIsBasedOnRawValue() {
-        let a = DeviceID(raw: "ABC123")
-        let b = DeviceID(raw: "ABC123")
-        let c = DeviceID(raw: "DEF456")
-        #expect(a == b)
-        #expect(a != c)
+        let first = DeviceID(raw: "ABC123")
+        let second = DeviceID(raw: "ABC123")
+        let other = DeviceID(raw: "DEF456")
+        #expect(first == second)
+        #expect(first != other)
     }
 
     @Test func hashesByRawValue() {

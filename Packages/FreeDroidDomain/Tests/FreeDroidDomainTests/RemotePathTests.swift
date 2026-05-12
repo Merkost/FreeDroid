@@ -29,6 +29,6 @@ struct RemotePathTests {
 
     @Test func name() {
         #expect(RemotePath(raw: "/sdcard/DCIM/photo.jpg").name == "photo.jpg")
-        #expect(RemotePath.root.name == "")
+        #expect(RemotePath.root.name.isEmpty)
     }
 }

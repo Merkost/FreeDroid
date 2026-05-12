@@ -7,5 +7,5 @@ public protocol FileRepository: Sendable {
     func write(_ path: RemotePath, data: Data, offset: Int64) async throws
     func mkdir(_ path: RemotePath) async throws
     func remove(_ path: RemotePath) async throws
-    func rename(_ from: RemotePath, to: RemotePath) async throws
+    func rename(_ from: RemotePath, to destination: RemotePath) async throws
 }
