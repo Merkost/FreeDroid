@@ -122,10 +122,20 @@ jobs:
           xcode-version: '16.3'
       - run: cd Packages/Features/Gallery && swift test --parallel
 
+  test-transfer:
+    name: Test Transfer
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.3'
+      - run: cd Packages/Features/Transfer && swift test --parallel
+
   build-app:
     name: Build FreeDroid app
     runs-on: macos-15
-    needs: [test-domain, test-ui, test-adb, test-mtp, test-data, test-device-mgmt, test-browser, test-gallery]
+    needs: [test-domain, test-ui, test-adb, test-mtp, test-data, test-device-mgmt, test-browser, test-gallery, test-transfer]
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
