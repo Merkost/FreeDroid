@@ -2,6 +2,19 @@ import Foundation
 import CLibmtp
 import FreeDroidDomain
 
+final class MTPTransferContext: @unchecked Sendable {
+    let handle: FileHandle
+    let expected: Int64
+    let progress: (any TransferProgressSink)?
+    var bytesTransferred: Int64 = 0
+
+    init(handle: FileHandle, expected: Int64, progress: (any TransferProgressSink)?) {
+        self.handle = handle
+        self.expected = expected
+        self.progress = progress
+    }
+}
+
 public actor MTPSession: Transport {
     public let deviceID: DeviceID
     public let capabilities = TransportCapabilities(
@@ -86,6 +99,102 @@ public actor MTPSession: Transport {
         return match
     }
 
+    public func fetch(_ path: RemotePath, into destination: URL, progress: (any TransferProgressSink)?) async throws -> Int64 {
+        try refreshResolverIfNeeded()
+        guard let dev = device, let res = resolver else { throw TransportError.notConnected }
+        guard let objectID = res.handle(for: path), objectID != 0 else { throw TransportError.notFound(path) }
+        let obj = res.objects.first(where: { $0.objectHandle == objectID })
+        let expected = obj?.size ?? 0
+        FileManager.default.createFile(atPath: destination.path, contents: nil)
+        let fileHandle = try FileHandle(forWritingTo: destination)
+        let ctx = MTPTransferContext(handle: fileHandle, expected: expected, progress: progress)
+        let ctxPtr = Unmanaged.passUnretained(ctx).toOpaque()
+        let result = MTPStderrSilencer.run {
+            LIBMTP_Get_File_To_Handler(
+                dev,
+                objectID,
+                { _, priv, sendlen, data, putlen in
+                    guard let priv, let data else {
+                        return UInt16(LIBMTP_HANDLER_RETURN_ERROR)
+                    }
+                    let ctx = Unmanaged<MTPTransferContext>.fromOpaque(priv).takeUnretainedValue()
+                    ctx.handle.write(Data(bytes: data, count: Int(sendlen)))
+                    ctx.bytesTransferred += Int64(sendlen)
+                    ctx.progress?.report(
+                        bytesTransferred: ctx.bytesTransferred,
+                        totalBytes: ctx.expected > 0 ? ctx.expected : nil
+                    )
+                    putlen?.pointee = sendlen
+                    return UInt16(LIBMTP_HANDLER_RETURN_OK)
+                },
+                ctxPtr,
+                nil,
+                nil
+            )
+        }
+        try? fileHandle.close()
+        guard result == 0 else {
+            throw TransportError.ioFailure(message: "LIBMTP_Get_File_To_Handler failed: \(result)")
+        }
+        return ctx.bytesTransferred
+    }
+
+    public func upload(from source: URL, to path: RemotePath, progress: (any TransferProgressSink)?) async throws -> Int64 {
+        try refreshResolverIfNeeded()
+        guard let dev = device, let res = resolver else { throw TransportError.notConnected }
+        let parent = path.parent ?? .root
+        guard let parentHandle = res.handle(for: parent) else { throw TransportError.notFound(parent) }
+        let storageID: UInt32 = res.objects.first(where: { $0.objectHandle == parentHandle })?.storageID
+            ?? res.objects.first?.storageID ?? 0
+        let attrs = try FileManager.default.attributesOfItem(atPath: source.path)
+        let fileSize = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+        let fileHandle = try FileHandle(forReadingFrom: source)
+        let ctx = MTPTransferContext(handle: fileHandle, expected: fileSize, progress: progress)
+        let ctxPtr = Unmanaged.passUnretained(ctx).toOpaque()
+        var meta = LIBMTP_file_t()
+        let nameBuf = strdup(path.name)
+        meta.filename = nameBuf
+        meta.filesize = UInt64(fileSize)
+        meta.parent_id = parentHandle
+        meta.storage_id = storageID
+        meta.filetype = LIBMTP_FILETYPE_UNKNOWN
+        let result = MTPStderrSilencer.run {
+            LIBMTP_Send_File_From_Handler(
+                dev,
+                { _, priv, wantlen, data, gotlen in
+                    guard let priv, let data else {
+                        return UInt16(LIBMTP_HANDLER_RETURN_ERROR)
+                    }
+                    let ctx = Unmanaged<MTPTransferContext>.fromOpaque(priv).takeUnretainedValue()
+                    let chunk = ctx.handle.readData(ofLength: Int(wantlen))
+                    if chunk.isEmpty {
+                        gotlen?.pointee = 0
+                        return UInt16(LIBMTP_HANDLER_RETURN_OK)
+                    }
+                    chunk.copyBytes(to: data, count: chunk.count)
+                    gotlen?.pointee = UInt32(chunk.count)
+                    ctx.bytesTransferred += Int64(chunk.count)
+                    ctx.progress?.report(
+                        bytesTransferred: ctx.bytesTransferred,
+                        totalBytes: ctx.expected > 0 ? ctx.expected : nil
+                    )
+                    return UInt16(LIBMTP_HANDLER_RETURN_OK)
+                },
+                ctxPtr,
+                &meta,
+                nil,
+                nil
+            )
+        }
+        free(nameBuf)
+        try? fileHandle.close()
+        guard result == 0 else {
+            throw TransportError.ioFailure(message: "LIBMTP_Send_File_From_Handler failed: \(result)")
+        }
+        try refreshResolver()
+        return ctx.bytesTransferred
+    }
+
     public func read(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
         try refreshResolverIfNeeded()
         guard let dev = device, let res = resolver else { throw TransportError.notConnected }
@@ -111,11 +220,6 @@ public actor MTPSession: Transport {
     public func write(_ path: RemotePath, data: Data, offset: Int64) async throws {
         guard offset == 0 else {
             throw TransportError.unsupported(reason: "MTP write does not support offset writes")
-        }
-        guard data.count <= quirks.maxWriteChunkBytes else {
-            throw TransportError.unsupported(
-                reason: "Chunked writes pending; max chunk = \(quirks.maxWriteChunkBytes)"
-            )
         }
         try refreshResolverIfNeeded()
         guard let dev = device, let res = resolver else { throw TransportError.notConnected }
