@@ -154,6 +154,7 @@ public struct FileRowView: View {
 public struct FileRowSkeleton: View {
     @Environment(\.theme) private var theme
     public let nameWidth: CGFloat
+    @State private var shimmerPhase: CGFloat = -0.5
 
     public init(nameWidth: CGFloat = 180) {
         self.nameWidth = nameWidth
@@ -161,24 +162,37 @@ public struct FileRowSkeleton: View {
 
     public var body: some View {
         HStack(spacing: Spacing.md) {
-            RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
-                .fill(theme.colors.line)
-                .frame(width: 16, height: 16)
+            placeholder(width: 16, height: 16)
                 .frame(width: 24, alignment: .center)
-            RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
-                .fill(theme.colors.line)
-                .frame(width: nameWidth, height: 10)
+            placeholder(width: nameWidth, height: 10)
             Spacer()
-            RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
-                .fill(theme.colors.line)
-                .frame(width: 60, height: 10)
-            RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
-                .fill(theme.colors.line)
-                .frame(width: 80, height: 10)
+            placeholder(width: 60, height: 10)
+            placeholder(width: 80, height: 10)
             Color.clear.frame(width: 18, height: 1)
         }
         .padding(.horizontal, Spacing.md)
         .frame(height: 32)
-        .redacted(reason: .placeholder)
+        .onAppear {
+            withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                shimmerPhase = 1.5
+            }
+        }
+    }
+
+    private func placeholder(width: CGFloat, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: Radius.xs, style: .continuous)
+            .fill(theme.colors.line)
+            .frame(width: width, height: height)
+            .overlay(
+                LinearGradient(
+                    colors: [.clear, theme.colors.background0.opacity(0.55), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: width * 0.7)
+                .offset(x: width * shimmerPhase)
+                .mask(RoundedRectangle(cornerRadius: Radius.xs, style: .continuous))
+            )
+            .clipped()
     }
 }

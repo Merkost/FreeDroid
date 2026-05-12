@@ -3,16 +3,65 @@ import FreeDroidDomain
 import FreeDroidUI
 
 struct FileListSkeleton: View {
+    var path: String?
+    var startedAt: Date?
     private let placeholderWidths: [CGFloat] = [200, 140, 220, 160, 180, 130, 200, 150]
 
     var body: some View {
-        VStack(spacing: 1) {
-            ForEach(placeholderWidths.indices, id: \.self) { index in
-                FileRowSkeleton(nameWidth: placeholderWidths[index])
+        VStack(spacing: 0) {
+            if startedAt != nil {
+                LoadingHeader(path: path, startedAt: startedAt)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.sm)
             }
+            VStack(spacing: 1) {
+                ForEach(placeholderWidths.indices, id: \.self) { index in
+                    FileRowSkeleton(nameWidth: placeholderWidths[index])
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
         }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+struct LoadingHeader: View {
+    @Environment(\.theme) private var theme
+    var path: String?
+    var startedAt: Date?
+    private let revealDelay: TimeInterval = 0.4
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.1)) { context in
+            let elapsed = startedAt.map { context.date.timeIntervalSince($0) } ?? 0
+            let visible = elapsed >= revealDelay
+            HStack(spacing: Spacing.sm) {
+                ProgressView()
+                    .controlSize(.small)
+                    .progressViewStyle(.circular)
+                Text(label(for: elapsed))
+                    .font(Typography.caption)
+                    .foregroundStyle(theme.colors.text2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.xs + 2)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                    .fill(theme.colors.background1.opacity(0.6))
+            )
+            .opacity(visible ? 1 : 0)
+            .animation(.easeOut(duration: 0.18), value: visible)
+        }
+    }
+
+    private func label(for elapsed: TimeInterval) -> String {
+        let base = path.map { "Loading \($0)" } ?? "Loading"
+        if elapsed < 1 { return "\(base)…" }
+        return "\(base) — \(Int(elapsed))s"
     }
 }
 

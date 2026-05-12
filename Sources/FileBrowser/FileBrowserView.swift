@@ -82,7 +82,7 @@ public struct FileBrowserView: View {
     @ViewBuilder
     private var contentArea: some View {
         if viewModel.isLoading && viewModel.entries.isEmpty {
-            FileListSkeleton()
+            FileListSkeleton(path: viewModel.path.raw, startedAt: viewModel.loadStartedAt)
         } else if viewModel.entries.isEmpty, let error = viewModel.lastError {
             errorContainer(error: error)
         } else if viewModel.entries.isEmpty {

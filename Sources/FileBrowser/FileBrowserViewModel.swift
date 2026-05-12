@@ -12,6 +12,7 @@ public final class FileBrowserViewModel {
     public var selection = FileBrowserSelection()
     public var focusedPath: RemotePath?
     public private(set) var isLoading = false
+    public private(set) var loadStartedAt: Date?
     public private(set) var lastError: TransportError?
 
     private let browseFolderUseCase: BrowseFolderUseCase
@@ -55,7 +56,11 @@ public final class FileBrowserViewModel {
 
     public func reload() async {
         isLoading = true
-        defer { isLoading = false }
+        loadStartedAt = Date()
+        defer {
+            isLoading = false
+            loadStartedAt = nil
+        }
         do {
             let raw = try await browseFolderUseCase(path)
             entries = sort.apply(raw, ascending: sortAscending)
