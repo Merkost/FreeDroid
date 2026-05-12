@@ -204,14 +204,13 @@ public actor DeviceRegistry {
     }
 
     private func recordADBDescriptors(forSerial serial: String) {
-        let exact = usbSnapshot.filter {
-            $0.serialNumber == serial || $0.serialNumber.map { serial.contains($0) } == true
+        let matches = usbSnapshot.filter {
+            guard let descriptorSerial = $0.serialNumber else { return false }
+            return descriptorSerial == serial
+                || serial.contains(descriptorSerial)
+                || descriptorSerial.contains(serial)
         }
-        for descriptor in exact {
-            knownADBDescriptors.insert(USBVendorProduct(vendorID: descriptor.vendorID, productID: descriptor.productID))
-        }
-        guard exact.isEmpty else { return }
-        for descriptor in usbSnapshot where AndroidVendorIDs.isAndroidVendor(descriptor.vendorID) {
+        for descriptor in matches {
             knownADBDescriptors.insert(USBVendorProduct(vendorID: descriptor.vendorID, productID: descriptor.productID))
         }
     }
