@@ -27,36 +27,38 @@ public struct DeviceCardView: View {
                 if let fraction = viewModel.transferFraction {
                     FluidProgress(fraction: fraction)
                 }
-                HStack(spacing: Spacing.md - 1) {
-                    LivingRing(color: color, state: viewModel.ringState, glyph: viewModel.glyph)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(viewModel.name)
-                            .font(Typography.bodyEmphasized)
-                            .foregroundStyle(theme.colors.text0)
-                            .lineLimit(1)
-                        if let hint = viewModel.statusHint {
-                            Text(hint)
-                                .font(Typography.caption)
-                                .foregroundStyle(theme.colors.warning)
-                                .lineLimit(2)
-                        } else {
-                            HStack(spacing: Spacing.xs + 2) {
-                                if let capacity = viewModel.capacityDescription {
-                                    Text(capacity)
-                                        .font(Typography.caption)
-                                        .foregroundStyle(theme.colors.text2)
-                                }
-                                IconChip(viewModel.transportLabel, kind: viewModel.transportKind)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    HStack(spacing: Spacing.md - 1) {
+                        LivingRing(color: color, state: viewModel.ringState, glyph: viewModel.glyph)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(viewModel.name)
+                                .font(Typography.bodyEmphasized)
+                                .foregroundStyle(theme.colors.text0)
+                                .lineLimit(1)
+                            if let subtitle = viewModel.subtitle {
+                                Text(subtitle)
+                                    .font(Typography.caption)
+                                    .foregroundStyle(theme.colors.text2)
+                                    .lineLimit(1)
                             }
                         }
+                        Spacer(minLength: 0)
+                        IconChip(viewModel.transportLabel, kind: viewModel.transportKind)
                     }
-                    Spacer(minLength: 0)
+                    if let hint = viewModel.statusHint {
+                        Text(hint)
+                            .font(Typography.caption)
+                            .foregroundStyle(theme.colors.warning)
+                            .lineLimit(2)
+                    } else if viewModel.isReady {
+                        readyFooter
+                    }
                 }
                 .padding(Spacing.xs + 2)
             }
         }
         .opacity(viewModel.isReady ? 1.0 : 0.65)
-        .allowsHitTesting(viewModel.isReady)
+        .allowsHitTesting(viewModel.isReady || isSelected)
         .contextMenu {
             Button("Show in Finder") {
                 onShowInFinder()
@@ -64,6 +66,49 @@ public struct DeviceCardView: View {
             Button("Reveal Transfers in Finder") {
                 onRevealInFinder()
             }
+        }
+    }
+
+    private var readyFooter: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let storage = viewModel.storageDescription {
+                Text(storage)
+                    .font(Typography.caption)
+                    .foregroundStyle(theme.colors.text2)
+            }
+            if let fraction = viewModel.storageFraction {
+                StorageBar(fraction: fraction, tint: color)
+            }
+            HStack(spacing: Spacing.xs) {
+                Button {
+                    onShowInFinder()
+                } label: {
+                    Label("Show in Finder", systemImage: "folder")
+                        .font(Typography.caption)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(theme.colors.accent)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private struct StorageBar: View {
+        @Environment(\.theme) private var theme
+        let fraction: Double
+        let tint: Color
+
+        var body: some View {
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(theme.colors.line)
+                    Capsule()
+                        .fill(tint.opacity(0.7))
+                        .frame(width: proxy.size.width * fraction)
+                }
+            }
+            .frame(height: 4)
         }
     }
 

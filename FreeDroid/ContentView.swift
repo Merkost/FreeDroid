@@ -22,6 +22,8 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             AmbientGradientBackground().ignoresSafeArea()
             VStack(spacing: 0) {
+                appHeader
+                Divider().overlay(theme.colors.line)
                 HStack(spacing: 0) {
                     ZStack(alignment: .bottomLeading) {
                         DeviceListView(
@@ -74,6 +76,23 @@ struct ContentView: View {
         }
     }
 
+    private var appHeader: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "smartphone")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(theme.colors.adb)
+            Text("FreeDroid")
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(theme.colors.text0)
+            Spacer()
+            Text("v\(container.bundleVersion)")
+                .font(Typography.caption)
+                .foregroundStyle(theme.colors.text2)
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.sm)
+    }
+
     private var appearanceMenu: some View {
         @Bindable var preferences = container.preferences
         return Menu {
@@ -100,48 +119,63 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detail: some View {
-        if let selectedID = container.deviceListViewModel.selectedID {
-            VStack(spacing: 0) {
+        ZStack {
+            if let selectedID = container.deviceListViewModel.selectedID {
+                deviceDetail(for: selectedID)
+                    .id(selectedID)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .trailing)),
+                        removal: .opacity.combined(with: .move(edge: .leading))
+                    ))
+            } else {
+                placeholderDetail
+                    .transition(.opacity)
+            }
+        }
+        .animation(.smooth(duration: 0.24), value: container.deviceListViewModel.selectedID)
+    }
+
+    private func deviceDetail(for selectedID: DeviceID) -> some View {
+        VStack(spacing: 0) {
+            HStack {
                 PillTabs(
                     selection: $tab,
                     tabs: [("Files", DetailTab.files), ("Gallery", DetailTab.gallery)]
                 )
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.md)
-                Divider().overlay(theme.colors.line)
-                SidebarFlow(selection: tab) { selectedTab in
-                    switch selectedTab {
-                    case .files:
-                        FileBrowserView(viewModel: container.fileBrowserViewModel(for: selectedID))
-                    case .gallery:
-                        GalleryView(
-                            viewModel: container.galleryViewModel(for: selectedID),
-                            onCopySelectionToMac: { items in
-                                Task {
-                                    guard let device = await container.registry.device(selectedID) else { return }
-                                    let stream = container.startTransferUseCase()(
-                                        deviceID: selectedID,
-                                        deviceName: device.displayName,
-                                        items: items.map { $0.path }
-                                    )
-                                    do {
-                                        for try await progress in stream {
-                                            await MainActor.run {
-                                                container.transfersViewModel.register(jobID: progress.jobID, on: selectedID)
-                                            }
+                Spacer()
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            Divider().overlay(theme.colors.line)
+            SidebarFlow(selection: tab) { selectedTab in
+                switch selectedTab {
+                case .files:
+                    FileBrowserView(viewModel: container.fileBrowserViewModel(for: selectedID))
+                case .gallery:
+                    GalleryView(
+                        viewModel: container.galleryViewModel(for: selectedID),
+                        onCopySelectionToMac: { items in
+                            Task {
+                                guard let device = await container.registry.device(selectedID) else { return }
+                                let stream = container.startTransferUseCase()(
+                                    deviceID: selectedID,
+                                    deviceName: device.displayName,
+                                    items: items.map { $0.path }
+                                )
+                                do {
+                                    for try await progress in stream {
+                                        await MainActor.run {
+                                            container.transfersViewModel.register(jobID: progress.jobID, on: selectedID)
                                         }
-                                    } catch {}
-                                }
+                                    }
+                                } catch {}
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .id(selectedID)
-        } else {
-            placeholderDetail
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var placeholderDetail: some View {

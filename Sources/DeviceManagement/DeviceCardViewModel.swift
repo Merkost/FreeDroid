@@ -66,6 +66,34 @@ public final class DeviceCardViewModel: Identifiable {
         return ByteCountFormatter().string(fromByteCount: capacity)
     }
 
+    public var subtitle: String? {
+        let manufacturer = device.manufacturer.trimmingCharacters(in: .whitespaces)
+        let model = device.model.trimmingCharacters(in: .whitespaces)
+        if manufacturer.isEmpty && model.isEmpty { return nil }
+        if manufacturer.isEmpty { return model }
+        if model.isEmpty { return manufacturer }
+        return "\(manufacturer) · \(model)"
+    }
+
+    public var storageDescription: String? {
+        guard let capacity = device.storageCapacityBytes else { return nil }
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useGB]
+        formatter.countStyle = .file
+        let total = formatter.string(fromByteCount: capacity)
+        if let free = device.storageFreeBytes {
+            let used = max(0, capacity - free)
+            return "\(formatter.string(fromByteCount: used)) of \(total) used"
+        }
+        return total
+    }
+
+    public var storageFraction: Double? {
+        guard let capacity = device.storageCapacityBytes, capacity > 0,
+              let free = device.storageFreeBytes else { return nil }
+        return Double(max(0, capacity - free)) / Double(capacity)
+    }
+
     public func setTransferProgress(_ fraction: Double) {
         transferFraction = max(0, min(1, fraction))
     }
