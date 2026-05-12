@@ -76,6 +76,95 @@ public actor ADBSyncClient {
         }
     }
 
+    public func statV1(remotePath: String) async throws -> SyncEntry {
+        let pathData = Data(remotePath.utf8)
+        var req = Data()
+        req.append(contentsOf: "STAT".utf8)
+        req.appendU32LE(UInt32(pathData.count))
+        req.append(pathData)
+        try await connection.sendRaw(req)
+
+        let id = try await connection.readBytes(4)
+        let idStr = String(decoding: id, as: UTF8.self)
+        switch idStr {
+        case "STAT":
+            let body = try await connection.readBytes(SyncV1Stat.wireSize - 4)
+            var combined = Data()
+            combined.append(id)
+            combined.append(body)
+            let stat = try SyncV1Stat.decode(idAndBody: combined)
+            return SyncEntry(
+                name: (remotePath as NSString).lastPathComponent,
+                mode: stat.mode,
+                size: stat.size,
+                uid: 0,
+                gid: 0,
+                atime: 0,
+                mtime: UInt64(stat.mtime),
+                ctime: 0
+            )
+        case "FAIL":
+            let length = try await connection.readU32LE()
+            let msg = try await connection.readString(Int(length))
+            throw ADBWireError.syncFailed(msg)
+        default:
+            throw ADBWireError.framingViolation(
+                context: "statV1 unexpected id '\(idStr)'",
+                firstBytes: Array(id)
+            )
+        }
+    }
+
+    public func listV1(remotePath: String) async throws -> [SyncEntry] {
+        let pathData = Data(remotePath.utf8)
+        var req = Data()
+        req.append(contentsOf: "LIST".utf8)
+        req.appendU32LE(UInt32(pathData.count))
+        req.append(pathData)
+        try await connection.sendRaw(req)
+
+        var entries: [SyncEntry] = []
+        while true {
+            try Task.checkCancellation()
+            let id = try await connection.readBytes(4)
+            let idStr = String(decoding: id, as: UTF8.self)
+            switch idStr {
+            case "DONE":
+                _ = try await connection.readU32LE()
+                return entries
+            case "FAIL":
+                let length = try await connection.readU32LE()
+                let msg = try await connection.readString(Int(length))
+                throw ADBWireError.syncFailed(msg)
+            case "DENT":
+                let header = try await connection.readBytes(16)
+                let mode = header.readU32LE(at: 0)
+                let size = UInt64(header.readU32LE(at: 4))
+                let mtime = UInt64(header.readU32LE(at: 8))
+                let nameLen = header.readU32LE(at: 12)
+                let nameBytes = try await connection.readBytes(Int(nameLen))
+                let name = String(decoding: nameBytes, as: UTF8.self)
+                if name != "." && name != ".." {
+                    entries.append(SyncEntry(
+                        name: name,
+                        mode: mode,
+                        size: size,
+                        uid: 0,
+                        gid: 0,
+                        atime: 0,
+                        mtime: mtime,
+                        ctime: 0
+                    ))
+                }
+            default:
+                throw ADBWireError.framingViolation(
+                    context: "listV1 unexpected id '\(idStr)'",
+                    firstBytes: Array(id)
+                )
+            }
+        }
+    }
+
     private func readDnt2Entry() async throws -> SyncEntry {
         let header = try await connection.readBytes(SyncV2Dent.bodyAfterId)
         guard header.count == SyncV2Dent.bodyAfterId else {
