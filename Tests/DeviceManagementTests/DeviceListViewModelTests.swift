@@ -6,7 +6,11 @@ import FreeDroidDomain
 @MainActor
 @Suite("DeviceListViewModel")
 struct DeviceListViewModelTests {
-    private func device(_ name: String, transport: TransportKind = .adb) -> Device {
+    private func device(
+        _ name: String,
+        transport: TransportKind = .adb,
+        connectionState: DeviceConnectionState = .ready
+    ) -> Device {
         Device(
             id: DeviceID(raw: name),
             displayName: name,
@@ -14,8 +18,16 @@ struct DeviceListViewModelTests {
             model: name,
             storageCapacityBytes: nil,
             storageFreeBytes: nil,
-            transport: transport
+            transport: transport,
+            connectionState: connectionState
         )
+    }
+
+    private func drain() async throws {
+        for _ in 0 ..< 20 {
+            await Task.yield()
+        }
+        try await Task.sleep(for: .milliseconds(50))
     }
 
     @Test func emptyAtFirst() {
@@ -28,8 +40,9 @@ struct DeviceListViewModelTests {
         let repo = StubDeviceRepository(initial: [])
         let vm = DeviceListViewModel(repository: repo)
         let observeTask = Task { await vm.observe() }
+        await Task.yield()
         repo.emit([device("A")])
-        try await Task.sleep(for: .milliseconds(50))
+        try await drain()
         #expect(vm.devices.count == 1)
         #expect(vm.selectedID == DeviceID(raw: "A"))
         observeTask.cancel()
@@ -39,11 +52,39 @@ struct DeviceListViewModelTests {
         let repo = StubDeviceRepository(initial: [device("A"), device("B")])
         let vm = DeviceListViewModel(repository: repo)
         let observeTask = Task { await vm.observe() }
-        try await Task.sleep(for: .milliseconds(50))
+        try await drain()
         vm.select(DeviceID(raw: "B"))
         repo.emit([device("B"), device("C")])
-        try await Task.sleep(for: .milliseconds(50))
+        try await drain()
         #expect(vm.selectedID == DeviceID(raw: "B"))
+        observeTask.cancel()
+    }
+
+    @Test func doesNotAutoSelectNonReadyDevices() async throws {
+        let repo = StubDeviceRepository(initial: [])
+        let vm = DeviceListViewModel(repository: repo)
+        let observeTask = Task { await vm.observe() }
+        await Task.yield()
+        repo.emit([
+            device("X", connectionState: .chargingOnly),
+            device("Y", connectionState: .pendingAuthorization)
+        ])
+        try await drain()
+        #expect(vm.selectedID == nil)
+        observeTask.cancel()
+    }
+
+    @Test func autoSelectsFirstReadyDeviceSkippingNonReady() async throws {
+        let repo = StubDeviceRepository(initial: [])
+        let vm = DeviceListViewModel(repository: repo)
+        let observeTask = Task { await vm.observe() }
+        await Task.yield()
+        repo.emit([
+            device("X", connectionState: .chargingOnly),
+            device("ReadyDevice", connectionState: .ready)
+        ])
+        try await drain()
+        #expect(vm.selectedID == DeviceID(raw: "ReadyDevice"))
         observeTask.cancel()
     }
 }

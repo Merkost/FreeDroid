@@ -28,14 +28,28 @@ final class StubTransferRepository: TransferRepository, @unchecked Sendable {
 @MainActor
 @Suite("TransfersViewModel")
 struct TransfersViewModelTests {
+    private func drain() async throws {
+        for _ in 0 ..< 20 {
+            await Task.yield()
+        }
+        try await Task.sleep(for: .milliseconds(50))
+    }
+
     @Test func observesStateStream() async throws {
         let repo = StubTransferRepository()
         let viewModel = TransfersViewModel(repository: repo, cancel: CancelTransferUseCase(repository: repo))
         let task = Task { await viewModel.observe() }
         let jobID = UUID()
-        let progress = TransferProgress(jobID: jobID, completedBytes: 50, totalBytes: 100, currentItem: nil, bytesPerSecond: 0)
+        let progress = TransferProgress(
+            jobID: jobID,
+            completedBytes: 50,
+            totalBytes: 100,
+            currentItem: nil,
+            bytesPerSecond: 0
+        )
+        await Task.yield()
         repo.emit([.running(progress)])
-        try await Task.sleep(for: .milliseconds(50))
+        try await drain()
         #expect(viewModel.states.count == 1)
         task.cancel()
     }

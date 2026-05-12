@@ -7,7 +7,11 @@ import FreeDroidUI
 @MainActor
 @Suite("DeviceCardViewModel")
 struct DeviceCardViewModelTests {
-    private func device(_ identifier: String, transport: TransportKind) -> Device {
+    private func device(
+        _ identifier: String,
+        transport: TransportKind,
+        connectionState: DeviceConnectionState = .ready
+    ) -> Device {
         Device(
             id: DeviceID(raw: identifier),
             displayName: identifier,
@@ -15,7 +19,8 @@ struct DeviceCardViewModelTests {
             model: identifier,
             storageCapacityBytes: nil,
             storageFreeBytes: nil,
-            transport: transport
+            transport: transport,
+            connectionState: connectionState
         )
     }
 
@@ -41,5 +46,51 @@ struct DeviceCardViewModelTests {
         #expect(vm.ringState == .transferring)
         vm.clearTransferProgress()
         #expect(vm.ringState == .idle)
+    }
+
+    @Test func statusHintNilForReadyDevice() {
+        let vm = DeviceCardViewModel(device: device("Pixel", transport: .adb, connectionState: .ready))
+        #expect(vm.statusHint == nil)
+    }
+
+    @Test func statusHintForPendingAuthorization() {
+        let vm = DeviceCardViewModel(
+            device: device("Galaxy", transport: .adb, connectionState: .pendingAuthorization)
+        )
+        #expect(vm.statusHint == "Tap Allow on your phone")
+    }
+
+    @Test func statusHintForChargingOnly() {
+        let vm = DeviceCardViewModel(
+            device: device("Pixel", transport: .adb, connectionState: .chargingOnly)
+        )
+        #expect(vm.statusHint == "Switch USB mode to File Transfer")
+    }
+
+    @Test func ringStateDisconnectedForPendingAuthorization() {
+        let vm = DeviceCardViewModel(
+            device: device("Galaxy", transport: .adb, connectionState: .pendingAuthorization)
+        )
+        #expect(vm.ringState == .disconnected)
+    }
+
+    @Test func ringStateDisconnectedForChargingOnly() {
+        let vm = DeviceCardViewModel(
+            device: device("Pixel", transport: .adb, connectionState: .chargingOnly)
+        )
+        #expect(vm.ringState == .disconnected)
+    }
+
+    @Test func isReadyOnlyForReadyState() {
+        let readyVM = DeviceCardViewModel(device: device("A", transport: .adb, connectionState: .ready))
+        let pendingVM = DeviceCardViewModel(
+            device: device("B", transport: .adb, connectionState: .pendingAuthorization)
+        )
+        let chargingVM = DeviceCardViewModel(
+            device: device("C", transport: .adb, connectionState: .chargingOnly)
+        )
+        #expect(readyVM.isReady)
+        #expect(!pendingVM.isReady)
+        #expect(!chargingVM.isReady)
     }
 }
