@@ -60,7 +60,7 @@ public final class ProviderItem: NSObject, NSFileProviderItem {
                .allowsDeleting, .allowsRenaming]
             : [.allowsReading, .allowsWriting, .allowsDeleting, .allowsRenaming]
         self.documentSize = entry.sizeBytes.map { NSNumber(value: $0) }
-        self.creationDate = nil
+        self.creationDate = entry.modifiedAt
         self.contentModificationDate = entry.modifiedAt
         let mod = entry.modifiedAt?.timeIntervalSince1970 ?? 0
         let size = entry.sizeBytes ?? 0
