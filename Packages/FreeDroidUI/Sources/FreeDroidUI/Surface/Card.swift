@@ -21,7 +21,7 @@ public struct Card<Content: View>: View {
                             .strokeBorder(isActive ? theme.colors.accent.opacity(0.25) : theme.colors.line, lineWidth: 1)
                     )
             }
-            .shadow(color: isActive ? theme.colors.accent.opacity(0.25) : .clear, radius: 30, x: 0, y: 10)
+            .shadow(isActive ? Shadows.glow(theme.colors.accent) : ShadowPreset(color: .clear, radius: 0, y: 0))
             .motion(.smooth, value: isActive)
     }
 }

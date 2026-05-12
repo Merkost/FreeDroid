@@ -59,7 +59,7 @@ public struct CommandStrip: View {
                         .strokeBorder(theme.colors.lineStrong, lineWidth: 1)
                 )
         }
-        .shadow(color: .black.opacity(0.55), radius: 25, x: 0, y: 14)
+        .shadow(Shadows.floating)
     }
 
     private var separator: some View {

@@ -46,11 +46,13 @@ identifier_name:
     warning: 2
     error: 2
   excluded:
+    - x
     - xs
     - sm
     - md
     - lg
     - xl
+    - y
 
 custom_rules:
   no_inline_comments:

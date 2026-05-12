@@ -22,6 +22,6 @@ public struct Sheet<Content: View>: View {
                         .strokeBorder(theme.colors.lineStrong, lineWidth: 1)
                 )
         }
-        .shadow(color: .black.opacity(0.4), radius: 50, x: 0, y: 25)
+        .shadow(Shadows.dramatic)
     }
 }

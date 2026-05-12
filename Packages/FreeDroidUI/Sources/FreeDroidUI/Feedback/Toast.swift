@@ -36,7 +36,7 @@ public struct Toast: View, Identifiable {
             Capsule().fill(.ultraThinMaterial)
                 .overlay(Capsule().strokeBorder(theme.colors.lineStrong, lineWidth: 1))
         }
-        .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 8)
+        .shadow(Shadows.subtle)
     }
 
     private var color: Color {
