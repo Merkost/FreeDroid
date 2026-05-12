@@ -126,16 +126,11 @@ struct ContentView: View {
             if let selectedID = container.deviceListViewModel.selectedID {
                 deviceDetail(for: selectedID)
                     .id(selectedID)
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .move(edge: .trailing)),
-                        removal: .opacity.combined(with: .move(edge: .leading))
-                    ))
             } else {
                 placeholderDetail
-                    .transition(.opacity)
             }
         }
-        .animation(.smooth(duration: 0.24), value: container.deviceListViewModel.selectedID)
+        .animation(.easeInOut(duration: 0.12), value: container.deviceListViewModel.selectedID)
     }
 
     private func deviceDetail(for selectedID: DeviceID) -> some View {

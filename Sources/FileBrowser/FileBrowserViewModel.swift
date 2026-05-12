@@ -207,10 +207,15 @@ public final class FileBrowserViewModel {
 
     public func deleteSelection() async {
         guard !selection.isEmpty else { return }
+        let toDelete = Array(selection.paths)
         do {
-            try await deleteFilesUseCase(paths: Array(selection.paths))
+            try await deleteFilesUseCase(paths: toDelete)
+            let removed = Set(toDelete)
+            entries.removeAll { removed.contains($0.path) }
             selection.clear()
-            await reload()
+            if let focused = focusedPath, removed.contains(focused) {
+                focusedPath = entries.first?.path
+            }
         } catch let error as TransportError {
             lastError = error
         } catch {

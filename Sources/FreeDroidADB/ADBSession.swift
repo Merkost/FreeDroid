@@ -45,6 +45,14 @@ public actor ADBSession: Transport {
         return out.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private static let modifiedAtFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f
+    }()
+
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
         let runner = await server.runner(for: serial)
         let out = try await runner.run(
@@ -56,12 +64,13 @@ public actor ADBSession: Transport {
             guard !line.hasPrefix("total ") else { return nil }
             guard let parsed = ADBOutputParser.parseLsLine(line) else { return nil }
             guard parsed.name != "." && parsed.name != ".." else { return nil }
+            let modifiedAt = Self.modifiedAtFormatter.date(from: parsed.modifiedAt)
             return RemoteEntry(
                 path: path.appending(parsed.name),
                 name: parsed.name,
                 kind: parsed.isDirectory ? .directory : .file,
                 sizeBytes: parsed.isDirectory ? nil : parsed.size,
-                modifiedAt: nil,
+                modifiedAt: modifiedAt,
                 isHidden: parsed.name.hasPrefix(".")
             )
         }
