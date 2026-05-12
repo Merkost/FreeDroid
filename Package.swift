@@ -19,7 +19,8 @@ let package = Package(
         .library(name: "DeviceManagement", targets: ["DeviceManagement"]),
         .library(name: "FileBrowser", targets: ["FileBrowser"]),
         .library(name: "Gallery", targets: ["Gallery"]),
-        .library(name: "Transfer", targets: ["Transfer"])
+        .library(name: "Transfer", targets: ["Transfer"]),
+        .library(name: "FreeDroidProviderShared", targets: ["FreeDroidProviderShared"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
@@ -123,6 +124,17 @@ let package = Package(
         .target(
             name: "FreeDroidIPC",
             dependencies: ["FreeDroidDomain"],
+            swiftSettings: strictConcurrency
+        ),
+
+        .target(
+            name: "FreeDroidProviderShared",
+            dependencies: ["FreeDroidDomain", "FreeDroidIPC"],
+            swiftSettings: strictConcurrency
+        ),
+        .testTarget(
+            name: "FreeDroidProviderSharedTests",
+            dependencies: ["FreeDroidProviderShared"],
             swiftSettings: strictConcurrency
         ),
 
