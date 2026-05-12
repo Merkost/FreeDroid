@@ -17,26 +17,8 @@ settings:
     GENERATE_INFOPLIST_FILE: NO
 
 packages:
-  FreeDroidDomain:
-    path: Packages/FreeDroidDomain
-  FreeDroidUI:
-    path: Packages/FreeDroidUI
-  FreeDroidADB:
-    path: Packages/FreeDroidADB
-  FreeDroidMTP:
-    path: Packages/FreeDroidMTP
-  FreeDroidData:
-    path: Packages/FreeDroidData
-  FreeDroidIPC:
-    path: Packages/FreeDroidIPC
-  DeviceManagement:
-    path: Packages/Features/DeviceManagement
-  FileBrowser:
-    path: Packages/Features/FileBrowser
-  Gallery:
-    path: Packages/Features/Gallery
-  Transfer:
-    path: Packages/Features/Transfer
+  FreeDroidPackages:
+    path: .
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: 2.6.0
@@ -66,21 +48,21 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
     dependencies:
-      - package: FreeDroidDomain
+      - package: FreeDroidPackages
         product: FreeDroidDomain
-      - package: FreeDroidUI
+      - package: FreeDroidPackages
         product: FreeDroidUI
-      - package: FreeDroidData
+      - package: FreeDroidPackages
         product: FreeDroidData
-      - package: FreeDroidIPC
+      - package: FreeDroidPackages
         product: FreeDroidIPC
-      - package: DeviceManagement
+      - package: FreeDroidPackages
         product: DeviceManagement
-      - package: FileBrowser
+      - package: FreeDroidPackages
         product: FileBrowser
-      - package: Gallery
+      - package: FreeDroidPackages
         product: Gallery
-      - package: Transfer
+      - package: FreeDroidPackages
         product: Transfer
       - package: Sparkle
         product: Sparkle
@@ -111,7 +93,7 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "15.4"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
     dependencies:
-      - package: FreeDroidDomain
+      - package: FreeDroidPackages
         product: FreeDroidDomain
-      - package: FreeDroidIPC
+      - package: FreeDroidPackages
         product: FreeDroidIPC

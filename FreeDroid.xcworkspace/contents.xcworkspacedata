@@ -1,14 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Workspace version = "1.0">
    <FileRef location = "group:FreeDroid.xcodeproj"></FileRef>
-   <FileRef location = "group:Packages/FreeDroidDomain"></FileRef>
-   <FileRef location = "group:Packages/FreeDroidUI"></FileRef>
-   <FileRef location = "group:Packages/FreeDroidADB"></FileRef>
-   <FileRef location = "group:Packages/FreeDroidMTP"></FileRef>
-   <FileRef location = "group:Packages/FreeDroidData"></FileRef>
-   <FileRef location = "group:Packages/FreeDroidIPC"></FileRef>
-   <FileRef location = "group:Packages/Features/DeviceManagement"></FileRef>
-   <FileRef location = "group:Packages/Features/FileBrowser"></FileRef>
-   <FileRef location = "group:Packages/Features/Gallery"></FileRef>
-   <FileRef location = "group:Packages/Features/Transfer"></FileRef>
 </Workspace>

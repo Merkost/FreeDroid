@@ -1,5 +1,6 @@
 import Foundation
 import FreeDroidDomain
+import FreeDroidData
 
 @MainActor
 final class XPCConnectionRegistry {
