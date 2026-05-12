@@ -67,11 +67,11 @@ struct DeviceCardViewModelTests {
         #expect(vm.statusHint == "Switch USB mode to File Transfer")
     }
 
-    @Test func ringStateDisconnectedForPendingAuthorization() {
+    @Test func ringStatePendingAuthorizationState() {
         let vm = DeviceCardViewModel(
             device: device("Galaxy", transport: .adb, connectionState: .pendingAuthorization)
         )
-        #expect(vm.ringState == .disconnected)
+        #expect(vm.ringState == .pendingAuthorization)
     }
 
     @Test func ringStateDisconnectedForChargingOnly() {

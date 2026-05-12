@@ -37,7 +37,9 @@ public final class DeviceCardViewModel: Identifiable {
         switch device.connectionState {
         case .ready:
             return transferFraction == nil ? .idle : .transferring
-        case .pendingAuthorization, .chargingOnly:
+        case .pendingAuthorization:
+            return .pendingAuthorization
+        case .chargingOnly:
             return .disconnected
         }
     }
