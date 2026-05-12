@@ -16,10 +16,10 @@ struct LayoutSnapshotTests {
                 SectionHeader("Today", detail: "42 photos")
                 MasonryLayout(columns: 4, spacing: Spacing.md - 2) {
                     ForEach(0..<palettes.count, id: \.self) { idx in
-                        let (color, h) = palettes[idx]
+                        let (color, height) = palettes[idx]
                         RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
                             .fill(color.opacity(0.4))
-                            .frame(height: h)
+                            .frame(height: height)
                     }
                 }
             }

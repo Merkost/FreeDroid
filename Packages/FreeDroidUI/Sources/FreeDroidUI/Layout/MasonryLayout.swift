@@ -16,8 +16,8 @@ public struct MasonryLayout: Layout {
         var heights = Array(repeating: CGFloat(0), count: columns)
         for subview in subviews {
             let col = shortestColumn(of: heights)
-            let s = subview.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil))
-            heights[col] += s.height + spacing
+            let size = subview.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil))
+            heights[col] += size.height + spacing
         }
         return CGSize(width: width, height: (heights.max() ?? 0) - spacing)
     }
@@ -27,19 +27,19 @@ public struct MasonryLayout: Layout {
         var heights = Array(repeating: bounds.minY, count: columns)
         for subview in subviews {
             let col = shortestColumn(of: heights)
-            let x = bounds.minX + CGFloat(col) * (columnWidth + spacing)
-            let s = subview.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil))
-            subview.place(at: CGPoint(x: x, y: heights[col]), proposal: ProposedViewSize(width: columnWidth, height: s.height))
-            heights[col] += s.height + spacing
+            let xPos = bounds.minX + CGFloat(col) * (columnWidth + spacing)
+            let size = subview.sizeThatFits(ProposedViewSize(width: columnWidth, height: nil))
+            subview.place(at: CGPoint(x: xPos, y: heights[col]), proposal: ProposedViewSize(width: columnWidth, height: size.height))
+            heights[col] += size.height + spacing
         }
     }
 
     private func shortestColumn(of heights: [CGFloat]) -> Int {
         var bestIdx = 0
         var bestVal = CGFloat.infinity
-        for (i, h) in heights.enumerated() where h < bestVal {
-            bestVal = h
-            bestIdx = i
+        for (idx, height) in heights.enumerated() where height < bestVal {
+            bestVal = height
+            bestIdx = idx
         }
         return bestIdx
     }

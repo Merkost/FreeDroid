@@ -1,9 +1,11 @@
 import SwiftUI
 
-struct AmbientGradientBackground: View {
+public struct AmbientGradientBackground: View {
     @Environment(\.theme) private var theme
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         Canvas { context, size in
             let radius = max(size.width, size.height) * 0.6
             context.fill(
