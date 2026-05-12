@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import FSKit
 import os.log
 import FreeDroidDomain
 import FreeDroidData
@@ -35,8 +34,7 @@ final class AppContainer {
     let transferToastPresenter = TransferToastPresenter()
 
     let xpcRegistry = XPCConnectionRegistry()
-    let extensionMonitor = FSExtensionMonitor()
-    let mountCoordinator: MountCoordinator
+    let domainCoordinator: ProviderDomainCoordinator
 
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -64,7 +62,7 @@ final class AppContainer {
             repository: transferRepository,
             cancel: CancelTransferUseCase(repository: transferRepository)
         )
-        self.mountCoordinator = MountCoordinator(registry: registry, extensionMonitor: extensionMonitor)
+        self.domainCoordinator = ProviderDomainCoordinator(registry: registry)
     }
 
     func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {
@@ -100,7 +98,6 @@ final class AppContainer {
     func start() async {
         try? await registry.start()
         xpcRegistry.start(registry: registry)
-        extensionMonitor.start()
-        mountCoordinator.start()
+        domainCoordinator.start()
     }
 }

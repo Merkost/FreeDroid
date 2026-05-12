@@ -22,15 +22,6 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             AmbientGradientBackground().ignoresSafeArea()
             VStack(spacing: 0) {
-                if #available(macOS 15.4, *) {
-                    FSExtensionBanner(
-                        status: container.extensionMonitor.status,
-                        onOpenSettings: { SystemSettingsLauncher.openLoginItemsAndExtensions() },
-                        onRefresh: {
-                            Task { await container.extensionMonitor.refresh() }
-                        }
-                    )
-                }
                 HStack(spacing: 0) {
                     ZStack(alignment: .bottomLeading) {
                         DeviceListView(
@@ -78,10 +69,6 @@ struct ContentView: View {
                 }
             }
         }
-        .motion(.smooth, value: {
-            if #available(macOS 15.4, *) { return container.extensionMonitor.status }
-            return FSExtensionStatus.unknown
-        }())
     }
 
     private var appearanceMenu: some View {
