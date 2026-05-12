@@ -115,9 +115,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         request: NSFileProviderRequest
     ) throws -> NSFileProviderEnumerator {
         if containerItemIdentifier == .workingSet { return WorkingSetEnumerator() }
-        if containerItemIdentifier == .trashContainer {
-            throw NSFileProviderError(.noSuchItem)
-        }
+        if containerItemIdentifier == .trashContainer { return WorkingSetEnumerator() }
         let path = ItemIdentifier.decode(containerItemIdentifier.rawValue) ?? .root
         return FolderEnumerator(
             container: containerItemIdentifier,
@@ -139,6 +137,10 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         let parentIdentifier = itemTemplate.parentItemIdentifier
         let filename = itemTemplate.filename
         let contentType = itemTemplate.contentType
+        if parentIdentifier == .trashContainer {
+            handler(nil, [], false, NSFileProviderError(.noSuchItem))
+            return progress
+        }
         Task {
             do {
                 let parent = try resolveParent(parentIdentifier)
@@ -185,6 +187,10 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         let itemIdentifierRaw = item.itemIdentifier.rawValue
         let parentIdentifier = item.parentItemIdentifier
         let filename = item.filename
+        if parentIdentifier == .trashContainer {
+            handler(nil, [], false, NSFileProviderError(.noSuchItem))
+            return progress
+        }
         Task {
             do {
                 guard let path = ItemIdentifier.decode(itemIdentifierRaw) else {
@@ -246,8 +252,11 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
     }
 
     private func resolveItem(for identifier: NSFileProviderItemIdentifier) async throws -> NSFileProviderItem {
-        if identifier == .rootContainer || identifier == .trashContainer {
+        if identifier == .rootContainer {
             return ProviderItem.root(displayName: domain.displayName)
+        }
+        if identifier == .trashContainer {
+            return ProviderItem.trash()
         }
         guard let path = ItemIdentifier.decode(identifier.rawValue) else {
             throw NSFileProviderError(.noSuchItem)

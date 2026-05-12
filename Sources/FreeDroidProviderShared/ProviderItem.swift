@@ -30,6 +30,23 @@ public final class ProviderItem: NSObject, NSFileProviderItem {
         )
     }
 
+    public static func trash() -> ProviderItem {
+        ProviderItem(
+            itemIdentifier: .trashContainer,
+            parentItemIdentifier: .rootContainer,
+            filename: "Trash",
+            contentType: .folder,
+            capabilities: [.allowsContentEnumerating, .allowsReading],
+            documentSize: nil,
+            creationDate: nil,
+            contentModificationDate: nil,
+            itemVersion: NSFileProviderItemVersion(
+                contentVersion: Data("trash-v1".utf8),
+                metadataVersion: Data("trash-v1".utf8)
+            )
+        )
+    }
+
     public init(entry: RemoteEntry, parent: RemotePath) {
         let isDirectory = entry.kind == .directory
         self.itemIdentifier = NSFileProviderItemIdentifier(ItemIdentifier.encode(entry.path))
