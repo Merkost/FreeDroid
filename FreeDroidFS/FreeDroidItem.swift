@@ -2,7 +2,7 @@ import Foundation
 import FSKit
 import FreeDroidDomain
 
-final class FreeDroidItem: FSItem {
+final class FreeDroidItem: FSItem, @unchecked Sendable {
     let entry: RemoteEntry
     let deviceID: DeviceID
 

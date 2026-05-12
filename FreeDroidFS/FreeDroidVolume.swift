@@ -9,6 +9,7 @@ private let logger = Logger(subsystem: "app.freedroid.FreeDroidFS", category: "v
 final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperations {
     let deviceID: DeviceID
     let client: XPCClient
+    let cache = FreeDroidItemCache()
     private let displayName: String
 
     var supportedVolumeCapabilities: FSVolume.SupportedCapabilities {
@@ -29,7 +30,7 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
         self.deviceID = deviceID
         self.client = client
         self.displayName = displayName
-        let volID = FSVolume.Identifier(uuid: UUID())
+        let volID = VolumeIdentifierMint.identifier(for: deviceID.raw)
         let volName = FSFileName(string: displayName)
         super.init(volumeID: volID, volumeName: volName)
     }
@@ -91,7 +92,7 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
         _ request: FSItem.SetAttributesRequest,
         on item: FSItem
     ) async throws -> FSItem.Attributes {
-        return FSItem.Attributes()
+        FSItem.Attributes()
     }
 
     func lookupItem(
@@ -103,12 +104,16 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
         }
         let nameStr = name.string ?? ""
         let path = parent.entry.path.appending(nameStr)
+        if let cached = await cache.get(path) {
+            return (cached, FSFileName(string: nameStr))
+        }
         do {
             let entry: RemoteEntry = try await client.send(
                 .stat(deviceID: parent.deviceID, path: path),
                 expecting: RemoteEntry.self
             )
             let resultItem = FreeDroidItem(deviceID: parent.deviceID, entry: entry)
+            await cache.put(path, resultItem)
             return (resultItem, FSFileName(string: entry.name))
         } catch TransportError.notFound {
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(ENOENT))
@@ -146,6 +151,7 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
             expecting: RemoteEntry.self
         )
         let newItem = FreeDroidItem(deviceID: parent.deviceID, entry: entry)
+        await cache.invalidate(parent.entry.path)
         return (newItem, FSFileName(string: entry.name))
     }
 
@@ -173,8 +179,12 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
     ) async throws {
         guard let fdItem = item as? FreeDroidItem else { return }
         _ = try await client.send(.remove(deviceID: fdItem.deviceID, path: fdItem.entry.path), expecting: Data.self)
+        if let parentPath = fdItem.entry.path.parent {
+            await cache.invalidate(parentPath)
+        }
     }
 
+    // swiftlint:disable:next function_parameter_count
     func renameItem(
         _ item: FSItem,
         inDirectory sourceDirectory: FSItem,
@@ -198,6 +208,10 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
             .rename(deviceID: fdItem.deviceID, from: fdItem.entry.path, to: destPath),
             expecting: Data.self
         )
+        if let sourceParent = fdItem.entry.path.parent {
+            await cache.invalidate(sourceParent)
+        }
+        await cache.invalidate(destParent)
         return FSFileName(string: destNameStr)
     }
 
@@ -228,14 +242,15 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
             )
         }
         do {
-            let entries: [RemoteEntry] = try await client.send(
-                .list(deviceID: fdDir.deviceID, path: fdDir.entry.path),
-                expecting: [RemoteEntry].self
-            )
+            let enumerator = DirectoryEnumerator(directory: fdDir, client: client)
+            let entries = try await enumerator.fetchAll()
             var itemID: UInt64 = 100
             let startIndex = Int(cookie.rawValue)
             for (index, entry) in entries.enumerated() {
                 if index < startIndex { continue }
+                let childPath = fdDir.entry.path.appending(entry.name)
+                let childItem = FreeDroidItem(deviceID: fdDir.deviceID, entry: entry)
+                await cache.put(childPath, childItem)
                 let itemType: FSItem.ItemType = entry.kind == .directory ? .directory : .file
                 let nextCookieValue = FSDirectoryCookie(rawValue: UInt64(index + 1))
                 let rawID = FSItem.Identifier(rawValue: itemID) ?? .rootDirectory
@@ -255,6 +270,9 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
         return FSDirectoryVerifier(1)
     }
 
+}
+
+extension FreeDroidVolume {
     func read(
         from item: FSItem,
         at offset: off_t,
@@ -285,6 +303,9 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
             .write(deviceID: fdItem.deviceID, path: fdItem.entry.path, data: data, offset: Int64(offset)),
             expecting: Data.self
         )
+        if let parentPath = fdItem.entry.path.parent {
+            await cache.invalidate(parentPath)
+        }
         return data.count
     }
 }
