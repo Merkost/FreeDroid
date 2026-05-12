@@ -1,0 +1,19 @@
+name: Homebrew Cask
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  bump-cask:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump cask
+        uses: dawidd6/action-homebrew-bump-cask@v3
+        with:
+          token: ${{ secrets.HOMEBREW_GITHUB_TOKEN }}
+          cask: freedroid
+          tag: ${{ github.event.release.tag_name }}
+          revision: ${{ github.sha }}
