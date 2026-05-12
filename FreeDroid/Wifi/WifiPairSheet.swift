@@ -9,7 +9,7 @@ final class WifiPairSheetViewModel {
     var isWorking = false
     var result: PairResult?
 
-    enum PairResult {
+    enum PairResult: Equatable {
         case success
         case failure(String)
     }
