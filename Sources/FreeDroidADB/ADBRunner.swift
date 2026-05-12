@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public protocol ADBRunner: Sendable {
     func run(_ command: ADBCommand, timeout: Duration) async throws -> ADBProcessOutput
@@ -188,44 +189,39 @@ public actor LiveADBRunner: ADBRunner {
     }
 
     private final class StreamingBuffer: @unchecked Sendable {
-        private let lock = NSLock()
-        private var bytes = Data()
+        private let state = OSAllocatedUnfairLock<Data>(initialState: Data())
 
         func append(_ chunk: Data) {
-            lock.lock()
-            bytes.append(chunk)
-            lock.unlock()
+            state.withLock { $0.append(chunk) }
         }
 
         func snapshot() -> Data {
-            lock.lock()
-            let copy = bytes
-            lock.unlock()
-            return copy
+            state.withLock { $0 }
         }
     }
 
     private final class ContinuationResolver<T: Sendable>: @unchecked Sendable {
-        private let lock = NSLock()
-        private var continuation: CheckedContinuation<T, Error>?
+        private let state: OSAllocatedUnfairLock<CheckedContinuation<T, Error>?>
 
         init(continuation: CheckedContinuation<T, Error>) {
-            self.continuation = continuation
+            self.state = OSAllocatedUnfairLock(initialState: continuation)
         }
 
         func succeed(_ value: T) {
-            lock.lock()
-            let taken = continuation
-            continuation = nil
-            lock.unlock()
+            let taken = state.withLock { current -> CheckedContinuation<T, Error>? in
+                let existing = current
+                current = nil
+                return existing
+            }
             taken?.resume(returning: value)
         }
 
         func fail(_ error: Error) {
-            lock.lock()
-            let taken = continuation
-            continuation = nil
-            lock.unlock()
+            let taken = state.withLock { current -> CheckedContinuation<T, Error>? in
+                let existing = current
+                current = nil
+                return existing
+            }
             taken?.resume(throwing: error)
         }
     }
