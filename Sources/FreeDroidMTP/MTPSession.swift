@@ -93,8 +93,10 @@ public actor MTPSession: Transport {
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("freedroid-mtp-\(UUID().uuidString)", isDirectory: false)
         defer { try? FileManager.default.removeItem(at: temp) }
-        let status = temp.withUnsafeFileSystemRepresentation { cstr -> Int32 in
-            LIBMTP_Get_File_To_File(dev, handle, cstr, nil, nil)
+        let status = MTPStderrSilencer.run {
+            temp.withUnsafeFileSystemRepresentation { cstr -> Int32 in
+                LIBMTP_Get_File_To_File(dev, handle, cstr, nil, nil)
+            }
         }
         if status != 0 {
             throw MTPSessionError.operationFailed(message: "Get_File_To_File=\(status)").toTransportError()
@@ -132,8 +134,10 @@ public actor MTPSession: Transport {
         meta.filesize = UInt64(data.count)
         meta.parent_id = parentHandle
         meta.storage_id = storageID
-        let status = temp.withUnsafeFileSystemRepresentation { cstr -> Int32 in
-            LIBMTP_Send_File_From_File(dev, cstr, &meta, nil, nil)
+        let status = MTPStderrSilencer.run {
+            temp.withUnsafeFileSystemRepresentation { cstr -> Int32 in
+                LIBMTP_Send_File_From_File(dev, cstr, &meta, nil, nil)
+            }
         }
         if status != 0 {
             throw MTPSessionError.operationFailed(message: "Send_File_From_File=\(status)").toTransportError()
@@ -150,7 +154,7 @@ public actor MTPSession: Transport {
             ?? res.objects.first?.storageID ?? 0
         let nameBuf = strdup(path.name)
         defer { free(nameBuf) }
-        let newID = LIBMTP_Create_Folder(dev, nameBuf, parentHandle, storageID)
+        let newID = MTPStderrSilencer.run { LIBMTP_Create_Folder(dev, nameBuf, parentHandle, storageID) }
         if newID == 0 {
             throw MTPSessionError.operationFailed(message: "Create_Folder failed").toTransportError()
         }
@@ -161,7 +165,7 @@ public actor MTPSession: Transport {
         try refreshResolverIfNeeded()
         guard let dev = device, let res = resolver else { throw TransportError.notConnected }
         guard let handle = res.handle(for: path), handle != 0 else { throw TransportError.notFound(path) }
-        let status = LIBMTP_Delete_Object(dev, handle)
+        let status = MTPStderrSilencer.run { LIBMTP_Delete_Object(dev, handle) }
         if status != 0 {
             throw MTPSessionError.operationFailed(message: "Delete_Object=\(status)").toTransportError()
         }
@@ -181,7 +185,7 @@ public actor MTPSession: Transport {
         folder.folder_id = handle
         let nameBuf = strdup(destination.name)
         defer { free(nameBuf) }
-        let status = LIBMTP_Set_Folder_Name(dev, &folder, nameBuf)
+        let status = MTPStderrSilencer.run { LIBMTP_Set_Folder_Name(dev, &folder, nameBuf) }
         if status != 0 {
             throw MTPSessionError.operationFailed(message: "Set_Folder_Name=\(status)").toTransportError()
         }
@@ -207,7 +211,7 @@ public actor MTPSession: Transport {
         rawCopy.device_entry.product_id = raw.productID
         rawCopy.bus_location = raw.busLocation
         rawCopy.devnum = raw.devnum
-        guard let dev = LIBMTP_Open_Raw_Device_Uncached(&rawCopy) else {
+        guard let dev = MTPStderrSilencer.run({ LIBMTP_Open_Raw_Device_Uncached(&rawCopy) }) else {
             throw MTPSessionError.openFailed(message: "device returned nil").toTransportError()
         }
         self.device = dev
@@ -234,13 +238,18 @@ public actor MTPSession: Transport {
         free(ptr)
     }
 
-    private func refreshResolverIfNeeded() throws {
+}
+
+extension MTPSession {
+    fileprivate func refreshResolverIfNeeded() throws {
         if resolver == nil { try refreshResolver() }
     }
 
-    private func refreshResolver() throws {
+    fileprivate func refreshResolver() throws {
         let dev = try openIfNeeded()
-        let head: UnsafeMutablePointer<LIBMTP_file_t>? = LIBMTP_Get_Filelisting_With_Callback(dev, nil, nil)
+        let head: UnsafeMutablePointer<LIBMTP_file_t>? = MTPStderrSilencer.run {
+            LIBMTP_Get_Filelisting_With_Callback(dev, nil, nil)
+        }
         defer {
             var cursor = head
             while let node = cursor {

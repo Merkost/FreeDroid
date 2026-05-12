@@ -13,7 +13,9 @@ public actor MTPDeviceDiscovery {
 
         var rawPtr: UnsafeMutablePointer<LIBMTP_raw_device_t>?
         var count: Int32 = 0
-        let result = LIBMTP_Detect_Raw_Devices(&rawPtr, &count)
+        let result = MTPStderrSilencer.run {
+            LIBMTP_Detect_Raw_Devices(&rawPtr, &count)
+        }
 
         defer { if let ptr = rawPtr { free(ptr) } }
 

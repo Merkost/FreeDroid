@@ -6,6 +6,11 @@ import FreeDroidMTP
 
 private let registryLogger = Logger(subsystem: "com.merkost.freedroid", category: "registry")
 
+private struct USBVendorProduct: Hashable, Sendable {
+    let vendorID: UInt16
+    let productID: UInt16
+}
+
 public actor DeviceRegistry {
     private var records: [DeviceID: DeviceRecord] = [:]
     private var consumers: [AsyncStream<[Device]>.Continuation] = []
@@ -17,6 +22,8 @@ public actor DeviceRegistry {
     private var usbSnapshot: [USBDeviceDescriptor] = []
     private var watcherTask: Task<Void, Never>?
     private var periodicTask: Task<Void, Never>?
+
+    private var knownADBDescriptors: Set<USBVendorProduct> = []
 
     public init(
         adbServer: ADBServer,
@@ -72,6 +79,7 @@ public actor DeviceRegistry {
         case .detached(let descriptor):
             usbSnapshot.removeAll { $0 == descriptor }
         }
+        try? await Task.sleep(for: .milliseconds(500))
         await safeRescan()
     }
 
@@ -143,6 +151,14 @@ public actor DeviceRegistry {
                 connectionState: .ready
             )
             newRecords[deviceID] = DeviceRecord(device: deviceRecord, transport: session)
+            if let matched = usbSnapshot.first(where: {
+                $0.serialNumber == identifier
+                    || $0.serialNumber.map { identifier.contains($0) } == true
+            }) {
+                knownADBDescriptors.insert(
+                    USBVendorProduct(vendorID: matched.vendorID, productID: matched.productID)
+                )
+            }
         }
     }
 
@@ -157,6 +173,11 @@ public actor DeviceRegistry {
         for rawDevice in mtpDevices {
             let deviceID = DeviceID(raw: rawDevice.identifier)
             if newRecords[deviceID] != nil { continue }
+            let candidateVP = USBVendorProduct(vendorID: rawDevice.vendorID, productID: rawDevice.productID)
+            if knownADBDescriptors.contains(candidateVP) {
+                skipped += 1
+                continue
+            }
             let matchedDescriptor = usbSnapshot.first {
                 $0.vendorID == rawDevice.vendorID && $0.productID == rawDevice.productID
             }
@@ -238,6 +259,20 @@ public actor DeviceRegistry {
         }
     }
 
+    fileprivate func register(_ continuation: AsyncStream<[Device]>.Continuation) {
+        consumers.append(continuation)
+        continuation.yield(records.values.map(\.device))
+    }
+
+    fileprivate func broadcast() {
+        let snapshot = records.values.map(\.device)
+        for continuation in consumers {
+            continuation.yield(snapshot)
+        }
+    }
+}
+
+extension DeviceRegistry {
     public func observe() -> AsyncStream<[Device]> {
         AsyncStream { continuation in
             Task { await self.register(continuation) }
@@ -251,17 +286,5 @@ public actor DeviceRegistry {
 
     public func transport(for identifier: DeviceID) async -> (any Transport)? {
         records[identifier]?.transport
-    }
-
-    private func register(_ continuation: AsyncStream<[Device]>.Continuation) {
-        consumers.append(continuation)
-        continuation.yield(records.values.map(\.device))
-    }
-
-    private func broadcast() {
-        let snapshot = records.values.map(\.device)
-        for continuation in consumers {
-            continuation.yield(snapshot)
-        }
     }
 }
