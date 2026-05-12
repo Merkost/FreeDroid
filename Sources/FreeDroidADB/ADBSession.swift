@@ -12,12 +12,18 @@ public actor ADBSession: Transport {
 
     private let serial: String
     private let server: ADBServer
+    private let wireHost: String
+    private let wirePort: UInt16
     private var cachedInfo: DeviceInfo?
 
-    public init(deviceID: DeviceID, serial: String, server: ADBServer) {
+    private static let wireEnabled = UserDefaults.standard.bool(forKey: "freedroid.useWireClient")
+
+    public init(deviceID: DeviceID, serial: String, server: ADBServer, wireHost: String = "127.0.0.1", wirePort: UInt16 = 5037) {
         self.deviceID = deviceID
         self.serial = serial
         self.server = server
+        self.wireHost = wireHost
+        self.wirePort = wirePort
     }
 
     public var info: DeviceInfo {
@@ -46,6 +52,31 @@ public actor ADBSession: Transport {
     }
 
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
+        if Self.wireEnabled {
+            return try await wireList(path)
+        }
+        return try await legacyList(path)
+    }
+
+    private func wireList(_ path: RemotePath) async throws -> [RemoteEntry] {
+        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
+        defer { syncClient.close() }
+        let entries = try await syncClient.listV2(remotePath: path.raw)
+        return entries.map { entry in
+            let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
+            let modifiedAt = Date(timeIntervalSince1970: TimeInterval(entry.mtime))
+            return RemoteEntry(
+                path: path.appending(entry.name),
+                name: entry.name,
+                kind: kind,
+                sizeBytes: entry.isDirectory ? nil : Int64(bitPattern: entry.size),
+                modifiedAt: modifiedAt,
+                isHidden: entry.name.hasPrefix(".")
+            )
+        }
+    }
+
+    private func legacyList(_ path: RemotePath) async throws -> [RemoteEntry] {
         let runner = await server.runner(for: serial)
         let out = try await runner.run(
             .shell(serial: serial, script: "ls -alL --time-style=long-iso \(escape(path.raw))/"),
@@ -68,8 +99,31 @@ public actor ADBSession: Transport {
     }
 
     public func stat(_ path: RemotePath) async throws -> RemoteEntry {
+        if Self.wireEnabled {
+            return try await wireStat(path)
+        }
+        return try await legacyStat(path)
+    }
+
+    private func wireStat(_ path: RemotePath) async throws -> RemoteEntry {
+        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
+        defer { syncClient.close() }
+        let entry = try await syncClient.statV2(remotePath: path.raw)
+        let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
+        let modifiedAt = Date(timeIntervalSince1970: TimeInterval(entry.mtime))
+        return RemoteEntry(
+            path: path,
+            name: path.name,
+            kind: kind,
+            sizeBytes: entry.isDirectory ? nil : Int64(bitPattern: entry.size),
+            modifiedAt: modifiedAt,
+            isHidden: path.name.hasPrefix(".")
+        )
+    }
+
+    private func legacyStat(_ path: RemotePath) async throws -> RemoteEntry {
         let parent = path.parent ?? .root
-        let entries = try await list(parent)
+        let entries = try await legacyList(parent)
         guard let match = entries.first(where: { $0.name == path.name }) else {
             throw TransportError.notFound(path)
         }
@@ -77,6 +131,26 @@ public actor ADBSession: Transport {
     }
 
     public func read(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
+        if Self.wireEnabled {
+            return try await wireRead(path, offset: offset, length: length)
+        }
+        return try await legacyRead(path, offset: offset, length: length)
+    }
+
+    private func wireRead(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
+        let temp = ADBFileSync.tempLocalPath()
+        defer { try? FileManager.default.removeItem(at: temp) }
+        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
+        defer { syncClient.close() }
+        _ = try await syncClient.recv(remotePath: path.raw, to: temp, progress: nil)
+        let data = try Data(contentsOf: temp)
+        let start = Int(offset)
+        let end = min(start + length, data.count)
+        guard start < data.count else { return Data() }
+        return data.subdata(in: start..<end)
+    }
+
+    private func legacyRead(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
         let temp = ADBFileSync.tempLocalPath()
         defer { try? FileManager.default.removeItem(at: temp) }
         let runner = await server.runner(for: serial)
@@ -92,6 +166,23 @@ public actor ADBSession: Transport {
         guard offset == 0 else {
             throw TransportError.unsupported(reason: "ADB push does not support offset writes")
         }
+        if Self.wireEnabled {
+            try await wireWrite(path, data: data)
+        } else {
+            try await legacyWrite(path, data: data)
+        }
+    }
+
+    private func wireWrite(_ path: RemotePath, data: Data) async throws {
+        let temp = ADBFileSync.tempLocalPath()
+        try data.write(to: temp)
+        defer { try? FileManager.default.removeItem(at: temp) }
+        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
+        defer { syncClient.close() }
+        _ = try await syncClient.send(from: temp, remotePath: path.raw)
+    }
+
+    private func legacyWrite(_ path: RemotePath, data: Data) async throws {
         let temp = ADBFileSync.tempLocalPath()
         try data.write(to: temp)
         defer { try? FileManager.default.removeItem(at: temp) }
@@ -100,21 +191,45 @@ public actor ADBSession: Transport {
     }
 
     public func mkdir(_ path: RemotePath) async throws {
-        let runner = await server.runner(for: serial)
-        _ = try await runner.run(.shell(serial: serial, script: "mkdir -p \(escape(path.raw))"), timeout: .seconds(5))
+        if Self.wireEnabled {
+            let shell = ADBShellClient(host: wireHost, port: wirePort)
+            let result = try await shell.run(serial: serial, command: "mkdir -p \(escape(path.raw))")
+            guard result.exitCode == 0 else {
+                throw TransportError.ioFailure(message: result.stderr)
+            }
+        } else {
+            let runner = await server.runner(for: serial)
+            _ = try await runner.run(.shell(serial: serial, script: "mkdir -p \(escape(path.raw))"), timeout: .seconds(5))
+        }
     }
 
     public func remove(_ path: RemotePath) async throws {
-        let runner = await server.runner(for: serial)
-        _ = try await runner.run(.shell(serial: serial, script: "rm -rf \(escape(path.raw))"), timeout: .seconds(30))
+        if Self.wireEnabled {
+            let shell = ADBShellClient(host: wireHost, port: wirePort)
+            let result = try await shell.run(serial: serial, command: "rm -rf \(escape(path.raw))")
+            guard result.exitCode == 0 else {
+                throw TransportError.ioFailure(message: result.stderr)
+            }
+        } else {
+            let runner = await server.runner(for: serial)
+            _ = try await runner.run(.shell(serial: serial, script: "rm -rf \(escape(path.raw))"), timeout: .seconds(30))
+        }
     }
 
     public func rename(_ from: RemotePath, to destination: RemotePath) async throws {
-        let runner = await server.runner(for: serial)
-        _ = try await runner.run(
-            .shell(serial: serial, script: "mv \(escape(from.raw)) \(escape(destination.raw))"),
-            timeout: .seconds(30)
-        )
+        if Self.wireEnabled {
+            let shell = ADBShellClient(host: wireHost, port: wirePort)
+            let result = try await shell.run(serial: serial, command: "mv \(escape(from.raw)) \(escape(destination.raw))")
+            guard result.exitCode == 0 else {
+                throw TransportError.ioFailure(message: result.stderr)
+            }
+        } else {
+            let runner = await server.runner(for: serial)
+            _ = try await runner.run(
+                .shell(serial: serial, script: "mv \(escape(from.raw)) \(escape(destination.raw))"),
+                timeout: .seconds(30)
+            )
+        }
     }
 
     public func close() async {

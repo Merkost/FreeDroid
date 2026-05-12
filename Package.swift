@@ -68,6 +68,11 @@ let package = Package(
             dependencies: ["FreeDroidADB"],
             swiftSettings: strictConcurrency
         ),
+        .testTarget(
+            name: "FreeDroidADBWireTests",
+            dependencies: ["FreeDroidADB"],
+            swiftSettings: strictConcurrency
+        ),
 
         .binaryTarget(
             name: "libmtp",
