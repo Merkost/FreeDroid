@@ -64,7 +64,7 @@ final class AppContainer {
             repository: transferRepository,
             cancel: CancelTransferUseCase(repository: transferRepository)
         )
-        self.mountCoordinator = MountCoordinator(registry: registry)
+        self.mountCoordinator = MountCoordinator(registry: registry, extensionMonitor: extensionMonitor)
     }
 
     func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {

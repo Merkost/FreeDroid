@@ -8,6 +8,7 @@ public enum FSExtensionStatus: Sendable, Equatable {
     case unknown
     case loaded
     case notLoaded
+    case installedButDisabled
 }
 
 /// Periodically queries FSKit for the presence of the FreeDroidFS extension
@@ -45,6 +46,12 @@ public final class FSExtensionMonitor {
         status = detectStatus()
     }
 
+    public func markDisabled() {
+        if status == .loaded || status == .unknown {
+            status = .installedButDisabled
+        }
+    }
+
     private func detectStatus() -> FSExtensionStatus {
         let extensionsURL = Bundle.main.bundleURL
             .appendingPathComponent("Contents", isDirectory: true)
@@ -53,6 +60,7 @@ public final class FSExtensionMonitor {
         guard FileManager.default.fileExists(atPath: extensionsURL.path) else {
             return .notLoaded
         }
+        if status == .installedButDisabled { return .installedButDisabled }
         return .loaded
     }
 }

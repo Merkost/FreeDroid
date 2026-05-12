@@ -13,10 +13,16 @@ actor MountedVolumeStore {
         self.url = folder.appendingPathComponent("mounted-volumes.json")
         if let data = try? Data(contentsOf: url),
            let map = try? JSONDecoder().decode([String: URL].self, from: data) {
-            self.snapshot = map
+            let mounted = Self.currentlyMountedPaths()
+            self.snapshot = map.filter { mounted.contains($0.value.standardizedFileURL.path) }
         } else {
             self.snapshot = [:]
         }
+    }
+
+    private static func currentlyMountedPaths() -> Set<String> {
+        let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: []) ?? []
+        return Set(urls.map { $0.standardizedFileURL.path })
     }
 
     func record(_ deviceID: DeviceID, mountedAt mountURL: URL) {

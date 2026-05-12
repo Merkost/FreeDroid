@@ -98,45 +98,24 @@ docs/
 
 ### 1. Finder volume mount (`/Volumes/<Device>`)
 
-**Symptom:** Plugging in an authorized phone shows the device in the app sidebar and the in-app browser works, but no entry appears in Finder under `/Volumes/`.
+**Status:** Code-side fixed. Remaining gate is a one-time per-user toggle.
 
-**Root cause:** `mount(8)` on macOS rejects `freedroid` as a filesystem type:
+**Symptom (before fix):** `mount: /Volumes/Pixel_9_Pro_XL: invalid file system`.
 
-```
-mount: /Volumes/Pixel_9_Pro_XL: invalid file system
-```
+**Root cause:** `/sbin/mount -t freedroid …` defaults to the legacy VFS lookup at `/Library/Filesystems/freedroid.fs/Contents/Resources/mount_freedroid`. ExtensionKit-based FSKit extensions aren't installed there — they live as `.appex` bundles registered with `fskitd`. The `-F` flag tells `mount(8)` to route through FSKit/`fskitd` instead.
 
-The kernel only recognizes types registered at `/System/Library/Filesystems/<name>.fs/` or `/Library/Filesystems/<name>.fs/`. Our FSKit extension is registered with PluginKit (visible via `pluginkit -mAvv -p com.apple.fskit.fsmodule`) but that registration is **not** the same as the kernel-level filesystem type registration that `mount` looks for.
+**Fix:** `MountCoordinator` now invokes `/sbin/mount -F -t freedroid …`. With `-F`, fskitd takes over and the failure shifts from "invalid file system" to `Module com.merkost.freedroid.FreeDroidFS is disabled!` until the user toggles the extension on.
 
-We tried `NetFSMountURLSync` first — it returns `ENOTSUP` (45) because NetFS only handles SMB/AFP/NFS/WebDAV, not custom schemes.
+**User action still required:** Open System Settings → Login Items & Extensions → File System Extensions and toggle FreeDroid on (one-time per machine/account). The in-app banner now distinguishes `installedButDisabled` from `notLoaded` so the user gets the right prompt.
 
-**Open questions:**
+### 2. System Settings → File System Extensions toggle bounces back
 
-- Is there an Apple-blessed in-process API for triggering a mount of a registered ExtensionKit FSKit extension? `FSClient` in the macOS 26 SDK only exposes `fetchInstalledExtensions`, not a mount call.
-- Apple's own `com.apple.fskit.msdos.appex`, `exfat.appex`, `ftp.appex` are paired with `/System/Library/Filesystems/msdos.fs/` (etc.) helper bundles. Do third-party FSKit extensions need a similar helper installed at `/Library/Filesystems/freedroid.fs/`? If yes, that requires admin auth to install.
-- Or does fskitd lazily register the type at the kernel level after first user-toggle in Settings — and is our Settings toggle currently broken (see #2)?
+**Status:** Fixed. Two underlying causes, both addressed:
 
-**Next steps:**
+1. **Team mismatch** (originally documented here): resolved by `Configs/Local.xcconfig` pinning `DEVELOPMENT_TEAM = P47X2292CM`. Cert `K7KLY2K5TR` matches that team.
+2. **Hardened-runtime missing on the appex** — this was the real cause of the silent toggle rollback. `project.yml` set `ENABLE_HARDENED_RUNTIME: YES` only on the `FreeDroid` app target, not on `FreeDroidFS`. macOS silently rejects FSKit extensions without hardened runtime: System Settings flips the switch on and immediately back off, leaving no UI error. Verified via `codesign -d --verbose=2 …FreeDroidFS.appex | grep flags` showing `flags=0x0(none)` before the fix and `flags=0x10000(runtime)` after.
 
-- Try shipping a minimal `freedroid.fs` registration bundle and install it via a helper tool on first launch.
-- Or wait for Apple to document/expose the proper app-side mount entry point for ExtensionKit-based FSKit extensions on macOS 15.4+.
-
-### 2. System Settings → Login Items & Extensions → File System Extensions toggle is greyed out
-
-**Symptom:** The FreeDroid entry appears in System Settings, but clicking the toggle does nothing.
-
-**Root cause:** Code signing identity vs provisioning profile team mismatch. The current build has:
-
-```
-Authority=Apple Development: Konstantin Merenkov (K7KLY2K5TR)   ← cert team
-TeamIdentifier=P47X2292CM                                          ← profile team
-```
-
-macOS refuses to let the user enable a FSKit extension whose signing cert is from a different team than the provisioning profile.
-
-**Fix in progress:** Add an Apple Development cert for team `P47X2292CM` via Xcode → Settings → Accounts → Manage Certificates → +. Once the cert and profile teams match, the toggle should respond.
-
-This is a per-contributor setup step, not a code change. Once aligned, every signed build is internally consistent.
+Both `project.yml` and the pbxproj now carry `ENABLE_HARDENED_RUNTIME = YES` for the appex.
 
 ### 3. The Finder integration banner showed "Not enabled" even when the extension was installed
 
@@ -158,7 +137,7 @@ The team ID now lives in `Configs/Local.xcconfig` (gitignored) referenced via `c
 
 ### 6. Apple's `mount_<freedroid>` helper binary doesn't exist
 
-**Related to #1.** Apple's reference FSKit extensions have a corresponding `mount_msdos`, `mount_ftp` binary at `/System/Library/Filesystems/<x>.fs/Contents/Resources/`. We don't ship one. This may or may not be required for ExtensionKit-style modules — needs investigation alongside #1.
+**Status:** Resolved — no helper needed. With `mount -F` the VFS lookup is bypassed entirely and the request is routed to fskitd, which talks to the `.appex` directly. The legacy `mount_<fs>` binaries are only used for kernel/VFS filesystems.
 
 ### 7. Logs at `subsystem == "com.merkost.freedroid"` show repeated rescans
 
@@ -178,6 +157,7 @@ The team ID now lives in `Configs/Local.xcconfig` (gitignored) referenced via `c
 
 ## Recently shipped
 
+- `dev` Empty in-app browser fix (`ls -alL` only) + `mount -F` for FSKit routing + disabled-state banner
 - `2a6ee2e` Banner detects via bundled appex + mount via `/sbin/mount`
 - `986f51c` One-click install to `/Applications` via scheme post-action
 - `1067f81` MountCoordinator + ADB symlink fix

@@ -37,12 +37,13 @@ public struct DeviceListView: View {
                                 transferFraction: deviceFractions[device.id],
                                 onRevealInFinder: { onRevealInFinder(device) }
                             )
+                            .id(device.id)
                             .onTapGesture { viewModel.select(device.id) }
-                            .motion(.crisp, value: viewModel.selectedID)
                         }
                     }
                 }
                 .padding(.horizontal, Spacing.sm + 2)
+                .animation(.snappy(duration: 0.18), value: viewModel.devices.map(\.id))
             }
         }
         .frame(width: 280)
@@ -59,19 +60,30 @@ private struct DeviceCardRow: View {
     let transferFraction: Double?
     let onRevealInFinder: () -> Void
 
+    @State private var cardViewModel: DeviceCardViewModel?
+
     var body: some View {
+        let vm = cardViewModel ?? DeviceCardViewModel(device: device)
         DeviceCardView(
-            viewModel: cardViewModel,
+            viewModel: vm,
             isSelected: isSelected,
             onRevealInFinder: onRevealInFinder
         )
-    }
-
-    private var cardViewModel: DeviceCardViewModel {
-        let vm = DeviceCardViewModel(device: device)
-        if let fraction = transferFraction {
-            vm.setTransferProgress(fraction)
+        .task(id: device.id) {
+            if cardViewModel == nil {
+                cardViewModel = DeviceCardViewModel(device: device)
+            }
         }
-        return vm
+        .onChange(of: device) { _, new in
+            cardViewModel?.update(device: new)
+        }
+        .onChange(of: transferFraction, initial: true) { _, new in
+            guard let cardViewModel else { return }
+            if let new {
+                cardViewModel.setTransferProgress(new)
+            } else {
+                cardViewModel.clearTransferProgress()
+            }
+        }
     }
 }

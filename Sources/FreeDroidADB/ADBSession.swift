@@ -48,7 +48,7 @@ public actor ADBSession: Transport {
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
         let runner = await server.runner(for: serial)
         let out = try await runner.run(
-            .shell(serial: serial, script: "ls -alL --time-style=long-iso \(escape(path.raw))/"),
+            .shell(serial: serial, script: "ls -alL \(escape(path.raw))/"),
             timeout: .seconds(15)
         )
         let lines = out.stdout.split(separator: "\n").map(String.init)

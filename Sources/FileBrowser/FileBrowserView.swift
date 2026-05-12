@@ -41,6 +41,7 @@ public struct FileBrowserView: View {
                     ) {
                         isCreatingFolder = true
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     list
                 }

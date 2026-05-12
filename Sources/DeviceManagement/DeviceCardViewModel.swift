@@ -6,14 +6,19 @@ import FreeDroidUI
 @MainActor
 @Observable
 public final class DeviceCardViewModel: Identifiable {
-    public let device: Device
+    public private(set) var device: Device
     public var transferFraction: Double?
+    public nonisolated let id: DeviceID
 
     public init(device: Device) {
         self.device = device
+        self.id = device.id
     }
 
-    public nonisolated var id: DeviceID { device.id }
+    public func update(device: Device) {
+        precondition(device.id == self.id, "DeviceCardViewModel.update called with mismatched id")
+        self.device = device
+    }
     public var name: String { device.displayName }
     public var glyph: String { String(name.first ?? "•") }
 

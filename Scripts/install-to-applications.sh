@@ -25,8 +25,29 @@ sleep 1
 rm -rf "$DEST"
 cp -R "$SOURCE" "$DEST"
 
+LSREG="/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Support/lsregister"
+
 if [ -d "$DEST/Contents/Extensions/FreeDroidFS.appex" ]; then
+    while IFS= read -r stale; do
+        case "$stale" in
+            "$DEST/Contents/Extensions/FreeDroidFS.appex") continue ;;
+            /System/*) continue ;;
+        esac
+        pluginkit -r "$stale" 2>/dev/null || true
+    done < <(find ~/Library/Developer/Xcode/DerivedData -name 'FreeDroidFS.appex' -type d 2>/dev/null)
+
+    while IFS= read -r staleApp; do
+        case "$staleApp" in
+            /Applications/*) continue ;;
+        esac
+        "$LSREG" -u "$staleApp" 2>/dev/null || true
+    done < <(find ~/Library/Developer/Xcode/DerivedData -name 'FreeDroid.app' -type d 2>/dev/null)
+
+    find ~/Library/Developer/Xcode/DerivedData -name 'FreeDroidFS.appex' -type d \
+        ! -path "$DEST/*" -exec rm -rf {} + 2>/dev/null || true
+
     pluginkit -a "$DEST/Contents/Extensions/FreeDroidFS.appex" 2>/dev/null || true
+    "$LSREG" "$DEST" 2>/dev/null || true
     sleep 1
     pluginkit -e use -p com.apple.fskit.fsmodule -i "$APPEX_BUNDLE_ID" 2>/dev/null || true
 fi

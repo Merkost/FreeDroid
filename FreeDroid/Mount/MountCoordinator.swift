@@ -9,14 +9,16 @@ private let mountLogger = Logger(subsystem: "com.merkost.freedroid", category: "
 @MainActor
 final class MountCoordinator {
     private let registry: DeviceRegistry
+    private let extensionMonitor: FSExtensionMonitor?
     private let store = MountedVolumeStore()
     private var task: Task<Void, Never>?
     private var inFlight: Set<DeviceID> = []
     private var recentFailures: [DeviceID: Date] = [:]
     private let failureBackoff: TimeInterval = 30
 
-    init(registry: DeviceRegistry) {
+    init(registry: DeviceRegistry, extensionMonitor: FSExtensionMonitor? = nil) {
         self.registry = registry
+        self.extensionMonitor = extensionMonitor
     }
 
     func start() {
@@ -80,21 +82,36 @@ final class MountCoordinator {
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
         let resourceURL = "freedroid://\(device.id.raw)/\(cleanName)"
-        let mountPoint = URL(fileURLWithPath: "/Volumes").appendingPathComponent(cleanName, isDirectory: true)
-        try? FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
+        let mountPoint = try mountRoot().appendingPathComponent(cleanName, isDirectory: true)
+        try FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
 
         let result = try await runProcess(
             executable: "/sbin/mount",
-            arguments: ["-t", "freedroid", resourceURL, mountPoint.path]
+            arguments: ["-F", "-t", "freedroid", resourceURL, mountPoint.path]
         )
 
         if result.exitCode != 0 {
             try? FileManager.default.removeItem(at: mountPoint)
             let detail = result.stderr.isEmpty ? result.stdout : result.stderr
-            throw TransportError.ioFailure(message: "mount -t freedroid \(resourceURL) → exit \(result.exitCode): \(detail)")
+            if detail.contains("is disabled") {
+                extensionMonitor?.markDisabled()
+            }
+            throw TransportError.ioFailure(message: "mount -F -t freedroid \(resourceURL) → exit \(result.exitCode): \(detail)")
         }
 
+        NSWorkspace.shared.open(mountPoint)
         return mountPoint
+    }
+
+    private func mountRoot() throws -> URL {
+        let base = try FileManager.default.url(
+            for: .cachesDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ).appendingPathComponent("FreeDroid/Mounts", isDirectory: true)
+        try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        return base
     }
 
     private func performUnmount(at mountURL: URL) async throws {

@@ -45,11 +45,13 @@ public actor LiveADBRunner: ADBRunner {
             process.standardOutput = stdoutPipe
             process.standardError = stderrPipe
 
+            let resolver = ContinuationResolver(continuation: continuation)
+
             let timeoutTask = Task {
-                try await Task.sleep(for: timeout)
+                try? await Task.sleep(for: timeout)
                 if process.isRunning {
                     process.terminate()
-                    continuation.resume(throwing: ADBRunnerError.timeout)
+                    resolver.fail(ADBRunnerError.timeout)
                 }
             }
 
@@ -61,9 +63,9 @@ public actor LiveADBRunner: ADBRunner {
                 let stderr = String(data: errData, encoding: .utf8) ?? ""
                 let output = ADBProcessOutput(exitCode: proc.terminationStatus, stdout: stdout, stderr: stderr)
                 if proc.terminationStatus != 0 {
-                    continuation.resume(throwing: ADBRunnerError.nonZeroExit(code: proc.terminationStatus, stderr: stderr))
+                    resolver.fail(ADBRunnerError.nonZeroExit(code: proc.terminationStatus, stderr: stderr))
                 } else {
-                    continuation.resume(returning: output)
+                    resolver.succeed(output)
                 }
             }
 
@@ -71,7 +73,7 @@ public actor LiveADBRunner: ADBRunner {
                 try process.run()
             } catch {
                 timeoutTask.cancel()
-                continuation.resume(throwing: ADBRunnerError.spawnFailed(message: error.localizedDescription))
+                resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))
             }
         }
     }
@@ -80,7 +82,7 @@ public actor LiveADBRunner: ADBRunner {
         _ command: ADBCommand,
         onLine: @escaping @Sendable (String) -> Void
     ) async throws -> Int32 {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int32, Error>) in
             let process = Process()
             process.executableURL = binary
             process.arguments = command.arguments
@@ -89,6 +91,8 @@ public actor LiveADBRunner: ADBRunner {
             let stdoutPipe = Pipe()
             process.standardOutput = stdoutPipe
             process.standardError = Pipe()
+
+            let resolver = ContinuationResolver(continuation: continuation)
 
             stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
                 let data = handle.availableData
@@ -100,14 +104,39 @@ public actor LiveADBRunner: ADBRunner {
 
             process.terminationHandler = { proc in
                 stdoutPipe.fileHandleForReading.readabilityHandler = nil
-                continuation.resume(returning: proc.terminationStatus)
+                resolver.succeed(proc.terminationStatus)
             }
 
             do {
                 try process.run()
             } catch {
-                continuation.resume(throwing: ADBRunnerError.spawnFailed(message: error.localizedDescription))
+                resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))
             }
+        }
+    }
+
+    private final class ContinuationResolver<T: Sendable>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<T, Error>?
+
+        init(continuation: CheckedContinuation<T, Error>) {
+            self.continuation = continuation
+        }
+
+        func succeed(_ value: T) {
+            lock.lock()
+            let taken = continuation
+            continuation = nil
+            lock.unlock()
+            taken?.resume(returning: value)
+        }
+
+        func fail(_ error: Error) {
+            lock.lock()
+            let taken = continuation
+            continuation = nil
+            lock.unlock()
+            taken?.resume(throwing: error)
         }
     }
 

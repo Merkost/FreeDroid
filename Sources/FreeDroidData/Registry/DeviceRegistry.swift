@@ -24,6 +24,9 @@ public actor DeviceRegistry {
     private var periodicTask: Task<Void, Never>?
 
     private var knownADBDescriptors: Set<USBVendorProduct> = []
+    private var missedRescans: [DeviceID: Int] = [:]
+    private let maxMisses = 2
+    private var lastBroadcastSnapshot: [Device] = []
 
     public init(
         adbServer: ADBServer,
@@ -116,7 +119,17 @@ public actor DeviceRegistry {
                                authorizedSerials: authorizedSerials,
                                into: &newRecords)
         for (oldID, oldRecord) in records where newRecords[oldID] == nil {
-            await oldRecord.transport?.close()
+            let misses = (missedRescans[oldID] ?? 0) + 1
+            if misses <= maxMisses {
+                missedRescans[oldID] = misses
+                newRecords[oldID] = oldRecord
+            } else {
+                missedRescans.removeValue(forKey: oldID)
+                await oldRecord.transport?.close()
+            }
+        }
+        for newID in newRecords.keys {
+            missedRescans.removeValue(forKey: newID)
         }
         records = newRecords
         broadcast()
@@ -261,14 +274,27 @@ public actor DeviceRegistry {
 
     fileprivate func register(_ continuation: AsyncStream<[Device]>.Continuation) {
         consumers.append(continuation)
-        continuation.yield(records.values.map(\.device))
+        continuation.yield(sortedSnapshot())
     }
 
     fileprivate func broadcast() {
-        let snapshot = records.values.map(\.device)
+        let snapshot = sortedSnapshot()
+        if snapshot == lastBroadcastSnapshot { return }
+        lastBroadcastSnapshot = snapshot
         for continuation in consumers {
             continuation.yield(snapshot)
         }
+    }
+
+    private func sortedSnapshot() -> [Device] {
+        records.values
+            .map(\.device)
+            .sorted { lhs, rhs in
+                if lhs.connectionState == rhs.connectionState {
+                    return lhs.id.raw < rhs.id.raw
+                }
+                return lhs.connectionState.sortRank < rhs.connectionState.sortRank
+            }
     }
 }
 
