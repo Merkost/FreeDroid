@@ -2,29 +2,18 @@ import AppKit
 import Foundation
 import FreeDroidData
 import FreeDroidDomain
-import NetFS
 import os.log
 
 private let mountLogger = Logger(subsystem: "com.merkost.freedroid", category: "mount")
 
-// MARK: - MountCoordinator
-
-/// Observes the DeviceRegistry and mounts/unmounts each ready Android device as a
-/// Finder volume under /Volumes/<DeviceName>.
-///
-/// Mount strategy: NetFSMountURLSync (available since macOS 10.8, no root required).
-/// The call passes a freedroid://<serial>/<displayName> URL to the NetFS layer, which
-/// forwards it to fskitd; fskitd looks up the registered FSKit extension whose
-/// FSSupportedSchemes contains "freedroid" and invokes probeResource then loadResource
-/// with an FSGenericURLResource wrapping that URL.
-///
-/// Unmount strategy: NSWorkspace.shared.unmountAndEjectDeviceAtURL (no root required).
 @MainActor
 final class MountCoordinator {
     private let registry: DeviceRegistry
     private let store = MountedVolumeStore()
     private var task: Task<Void, Never>?
     private var inFlight: Set<DeviceID> = []
+    private var recentFailures: [DeviceID: Date] = [:]
+    private let failureBackoff: TimeInterval = 30
 
     init(registry: DeviceRegistry) {
         self.registry = registry
@@ -60,13 +49,18 @@ final class MountCoordinator {
         guard !inFlight.contains(device.id) else { return }
         let alreadyMounted = await store.mountURL(for: device.id) != nil
         guard !alreadyMounted else { return }
+        if let lastFailure = recentFailures[device.id], Date().timeIntervalSince(lastFailure) < failureBackoff {
+            return
+        }
         inFlight.insert(device.id)
         defer { inFlight.remove(device.id) }
         do {
             let mountURL = try await performMount(device)
             await store.record(device.id, mountedAt: mountURL)
+            recentFailures.removeValue(forKey: device.id)
             mountLogger.info("Mounted \(device.displayName, privacy: .public) at \(mountURL.path, privacy: .public)")
         } catch {
+            recentFailures[device.id] = Date()
             mountLogger.error("Mount failed for \(device.displayName, privacy: .public): \(String(describing: error), privacy: .public)")
         }
     }
@@ -82,53 +76,65 @@ final class MountCoordinator {
     }
 
     private func performMount(_ device: Device) async throws -> URL {
-        var components = URLComponents()
-        components.scheme = "freedroid"
-        components.host = device.id.raw
-        let safeName = device.displayName
+        let cleanName = device.displayName
             .replacingOccurrences(of: "/", with: "-")
-            .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "Android"
-        components.path = "/" + safeName
-        guard let resourceURL = components.url else {
-            throw TransportError.unsupported(reason: "Cannot construct freedroid:// URL for device \(device.id.raw)")
-        }
+            .replacingOccurrences(of: ":", with: "-")
+        let resourceURL = "freedroid://\(device.id.raw)/\(cleanName)"
+        let mountPoint = URL(fileURLWithPath: "/Volumes").appendingPathComponent(cleanName, isDirectory: true)
+        try? FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
 
-        let mountDir = URL(fileURLWithPath: "/Volumes")
-        let cleanName = device.displayName.replacingOccurrences(of: "/", with: "-")
-        let requestedMount = mountDir.appendingPathComponent(cleanName, isDirectory: true)
-        try? FileManager.default.createDirectory(at: requestedMount, withIntermediateDirectories: true)
-
-        let openOptions = NSMutableDictionary()
-        openOptions[kNetFSUseGuestKey] = true as CFBoolean
-
-        let mountOptions = NSMutableDictionary()
-        mountOptions[kNetFSMountAtMountDirKey] = true as CFBoolean
-
-        var mountpoints: Unmanaged<CFArray>?
-        let status = NetFSMountURLSync(
-            resourceURL as CFURL,
-            requestedMount as CFURL,
-            nil,
-            nil,
-            openOptions as CFMutableDictionary,
-            mountOptions as CFMutableDictionary,
-            &mountpoints
+        let result = try await runProcess(
+            executable: "/sbin/mount",
+            arguments: ["-t", "freedroid", resourceURL, mountPoint.path]
         )
 
-        let resolvedPaths = mountpoints?.takeRetainedValue() as? [String]
-
-        if status != 0 {
-            try? FileManager.default.removeItem(at: requestedMount)
-            throw TransportError.ioFailure(message: "NetFSMountURLSync returned \(status) for \(resourceURL.absoluteString)")
+        if result.exitCode != 0 {
+            try? FileManager.default.removeItem(at: mountPoint)
+            let detail = result.stderr.isEmpty ? result.stdout : result.stderr
+            throw TransportError.ioFailure(message: "mount -t freedroid \(resourceURL) → exit \(result.exitCode): \(detail)")
         }
 
-        if let first = resolvedPaths?.first {
-            return URL(fileURLWithPath: first, isDirectory: true)
-        }
-        return requestedMount
+        return mountPoint
     }
 
     private func performUnmount(at mountURL: URL) async throws {
-        try await NSWorkspace.shared.unmountAndEjectDevice(at: mountURL)
+        let result = try await runProcess(
+            executable: "/sbin/umount",
+            arguments: [mountURL.path]
+        )
+        if result.exitCode != 0 {
+            let detail = result.stderr.isEmpty ? result.stdout : result.stderr
+            throw TransportError.ioFailure(message: "umount \(mountURL.path) → exit \(result.exitCode): \(detail)")
+        }
+    }
+
+    private struct ProcessOutput {
+        let exitCode: Int32
+        let stdout: String
+        let stderr: String
+    }
+
+    private func runProcess(executable: String, arguments: [String]) async throws -> ProcessOutput {
+        try await withCheckedThrowingContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = arguments
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+            process.terminationHandler = { finished in
+                let outData = (try? stdoutPipe.fileHandleForReading.readToEnd()) ?? Data()
+                let errData = (try? stderrPipe.fileHandleForReading.readToEnd()) ?? Data()
+                let stdout = String(data: outData, encoding: .utf8) ?? ""
+                let stderr = String(data: errData, encoding: .utf8) ?? ""
+                continuation.resume(returning: ProcessOutput(exitCode: finished.terminationStatus, stdout: stdout, stderr: stderr))
+            }
+            do {
+                try process.run()
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
     }
 }

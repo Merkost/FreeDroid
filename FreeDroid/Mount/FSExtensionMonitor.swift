@@ -42,20 +42,17 @@ public final class FSExtensionMonitor {
     }
 
     public func refresh() async {
-        let identifier = bundleIdentifier
-        let log = logger
-        let result: FSExtensionStatus = await withCheckedContinuation { continuation in
-            FSClient.shared.fetchInstalledExtensions { modules, error in
-                if let error {
-                    log.error("fetchInstalledExtensions failed: \(error.localizedDescription, privacy: .public)")
-                    continuation.resume(returning: .unknown)
-                    return
-                }
-                let identifiers = modules?.map(\.bundleIdentifier) ?? []
-                let isLoaded = identifiers.contains(identifier)
-                continuation.resume(returning: isLoaded ? .loaded : .notLoaded)
-            }
+        status = detectStatus()
+    }
+
+    private func detectStatus() -> FSExtensionStatus {
+        let extensionsURL = Bundle.main.bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Extensions", isDirectory: true)
+            .appendingPathComponent("FreeDroidFS.appex", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: extensionsURL.path) else {
+            return .notLoaded
         }
-        status = result
+        return .loaded
     }
 }
