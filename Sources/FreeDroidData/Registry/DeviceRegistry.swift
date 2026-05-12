@@ -24,6 +24,7 @@ public actor DeviceRegistry {
     private var periodicTask: Task<Void, Never>?
 
     private var knownADBDescriptors: Set<USBVendorProduct> = []
+    private var adbHintedModels: [String] = []
     private var missedRescans: [DeviceID: Int] = [:]
     private let maxMisses = 2
     private var lastBroadcastSnapshot: [Device] = []
@@ -140,6 +141,7 @@ public actor DeviceRegistry {
         mtpDevices: [MTPRawDevice],
         into newRecords: inout [DeviceID: DeviceRecord]
     ) async throws {
+        var emittedModels: [String] = []
         for adbEntry in adbDevices where adbEntry.state == .device {
             let identifier = adbEntry.serial
             let deviceID = DeviceID(raw: identifier)
@@ -153,9 +155,10 @@ public actor DeviceRegistry {
             guard kind == .adb else { continue }
             let session = ADBSession(deviceID: deviceID, serial: identifier, server: adbServer)
             let deviceInfo = try await session.info
+            let displayName = adbEntry.model ?? deviceInfo.model
             let deviceRecord = Device(
                 id: deviceID,
-                displayName: adbEntry.model ?? deviceInfo.model,
+                displayName: displayName,
                 manufacturer: deviceInfo.manufacturer,
                 model: deviceInfo.model,
                 storageCapacityBytes: deviceInfo.storageCapacityBytes,
@@ -164,14 +167,43 @@ public actor DeviceRegistry {
                 connectionState: .ready
             )
             newRecords[deviceID] = DeviceRecord(device: deviceRecord, transport: session)
-            if let matched = usbSnapshot.first(where: {
-                $0.serialNumber == identifier
-                    || $0.serialNumber.map { identifier.contains($0) } == true
-            }) {
-                knownADBDescriptors.insert(
-                    USBVendorProduct(vendorID: matched.vendorID, productID: matched.productID)
-                )
-            }
+            recordADBDescriptors(forSerial: identifier)
+            emittedModels.append(displayName)
+            emittedModels.append(deviceInfo.model)
+            emittedModels.append(deviceInfo.manufacturer)
+        }
+        adbHintedModels = emittedModels
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func nameOverlapsAnyADBHint(_ candidate: String) -> Bool {
+        let candidateTokens = Self.tokens(in: candidate)
+        guard !candidateTokens.isEmpty else { return false }
+        for hint in adbHintedModels {
+            let hintTokens = Self.tokens(in: hint)
+            if !candidateTokens.intersection(hintTokens).isEmpty { return true }
+        }
+        return false
+    }
+
+    private static func tokens(in name: String) -> Set<String> {
+        let lowered = name.lowercased()
+        let separators = CharacterSet(charactersIn: " /_:()-")
+        let parts = lowered.components(separatedBy: separators).filter { $0.count >= 3 }
+        return Set(parts)
+    }
+
+    private func recordADBDescriptors(forSerial serial: String) {
+        let exact = usbSnapshot.filter {
+            $0.serialNumber == serial || $0.serialNumber.map { serial.contains($0) } == true
+        }
+        for descriptor in exact {
+            knownADBDescriptors.insert(USBVendorProduct(vendorID: descriptor.vendorID, productID: descriptor.productID))
+        }
+        guard exact.isEmpty else { return }
+        for descriptor in usbSnapshot where AndroidVendorIDs.isAndroidVendor(descriptor.vendorID) {
+            knownADBDescriptors.insert(USBVendorProduct(vendorID: descriptor.vendorID, productID: descriptor.productID))
         }
     }
 
@@ -197,6 +229,11 @@ public actor DeviceRegistry {
             if let descriptor = matchedDescriptor,
                let serial = descriptor.serialNumber,
                adbSerials.contains(serial) {
+                skipped += 1
+                continue
+            }
+            if let productName = rawDevice.productName,
+               nameOverlapsAnyADBHint(productName) {
                 skipped += 1
                 continue
             }
