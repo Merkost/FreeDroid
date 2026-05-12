@@ -22,6 +22,7 @@ final class AppContainer {
     let mtpRuntime = MTPRuntime()
     let mtpDiscovery: MTPDeviceDiscovery
     let pinPreference = DevicePinPreference()
+    let usbWatcher = USBDeviceWatcher()
     let listingCache = ListingCache()
     let thumbnailCache: ThumbnailCache
     let registry: DeviceRegistry
@@ -52,7 +53,8 @@ final class AppContainer {
             adbServer: adbServer,
             mtpRuntime: mtpRuntime,
             mtpDiscovery: mtpDiscovery,
-            pinPreference: pinPreference
+            pinPreference: pinPreference,
+            usbWatcher: usbWatcher
         )
         self.deviceRepository = DeviceRepositoryImpl(registry: registry)
         self.deviceListViewModel = DeviceListViewModel(repository: deviceRepository)

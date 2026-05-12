@@ -13,7 +13,7 @@ public struct DeviceCardView: View {
     }
 
     public var body: some View {
-        Card(isActive: isSelected) {
+        Card(isActive: isSelected && viewModel.isReady) {
             ZStack(alignment: .bottom) {
                 if let fraction = viewModel.transferFraction {
                     FluidProgress(fraction: fraction)
@@ -25,13 +25,20 @@ public struct DeviceCardView: View {
                             .font(Typography.bodyEmphasized)
                             .foregroundStyle(theme.colors.text0)
                             .lineLimit(1)
-                        HStack(spacing: Spacing.xs + 2) {
-                            if let capacity = viewModel.capacityDescription {
-                                Text(capacity)
-                                    .font(Typography.caption)
-                                    .foregroundStyle(theme.colors.text2)
+                        if let hint = viewModel.statusHint {
+                            Text(hint)
+                                .font(Typography.caption)
+                                .foregroundStyle(theme.colors.warning)
+                                .lineLimit(2)
+                        } else {
+                            HStack(spacing: Spacing.xs + 2) {
+                                if let capacity = viewModel.capacityDescription {
+                                    Text(capacity)
+                                        .font(Typography.caption)
+                                        .foregroundStyle(theme.colors.text2)
+                                }
+                                IconChip(viewModel.transportLabel, kind: viewModel.transportKind)
                             }
-                            IconChip(viewModel.transportLabel, kind: viewModel.transportKind)
                         }
                     }
                     Spacer(minLength: 0)
@@ -39,6 +46,8 @@ public struct DeviceCardView: View {
                 .padding(Spacing.xs + 2)
             }
         }
+        .opacity(viewModel.isReady ? 1.0 : 0.65)
+        .allowsHitTesting(viewModel.isReady)
     }
 
     private var color: Color {

@@ -20,7 +20,7 @@ public final class DeviceListViewModel {
     }
 
     public func select(_ identifier: DeviceID) {
-        guard devices.contains(where: { $0.id == identifier }) else { return }
+        guard devices.contains(where: { $0.id == identifier && $0.connectionState == .ready }) else { return }
         selectedID = identifier
     }
 
@@ -29,6 +29,6 @@ public final class DeviceListViewModel {
         if let current = selectedID, devices.contains(where: { $0.id == current }) {
             return
         }
-        selectedID = snapshot.first?.id
+        selectedID = snapshot.first(where: { $0.connectionState == .ready })?.id
     }
 }

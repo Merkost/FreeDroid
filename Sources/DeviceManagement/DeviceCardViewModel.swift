@@ -34,7 +34,24 @@ public final class DeviceCardViewModel: Identifiable {
     }
 
     public var ringState: LivingRingState {
-        transferFraction == nil ? .idle : .transferring
+        switch device.connectionState {
+        case .ready:
+            return transferFraction == nil ? .idle : .transferring
+        case .pendingAuthorization, .chargingOnly:
+            return .disconnected
+        }
+    }
+
+    public var statusHint: String? {
+        switch device.connectionState {
+        case .ready: return nil
+        case .pendingAuthorization: return "Tap Allow on your phone"
+        case .chargingOnly: return "Switch USB mode to File Transfer"
+        }
+    }
+
+    public var isReady: Bool {
+        device.connectionState == .ready
     }
 
     public var capacityDescription: String? {
