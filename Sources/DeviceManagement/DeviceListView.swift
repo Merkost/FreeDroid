@@ -6,10 +6,16 @@ public struct DeviceListView: View {
     @Environment(\.theme) private var theme
     @Bindable var viewModel: DeviceListViewModel
     var deviceFractions: [DeviceID: Double]
+    var onRevealInFinder: (Device) -> Void
 
-    public init(viewModel: DeviceListViewModel, deviceFractions: [DeviceID: Double] = [:]) {
+    public init(
+        viewModel: DeviceListViewModel,
+        deviceFractions: [DeviceID: Double] = [:],
+        onRevealInFinder: @escaping (Device) -> Void = { _ in }
+    ) {
         self.viewModel = viewModel
         self.deviceFractions = deviceFractions
+        self.onRevealInFinder = onRevealInFinder
     }
 
     public var body: some View {
@@ -28,7 +34,8 @@ public struct DeviceListView: View {
                             DeviceCardRow(
                                 device: device,
                                 isSelected: device.id == viewModel.selectedID,
-                                transferFraction: deviceFractions[device.id]
+                                transferFraction: deviceFractions[device.id],
+                                onRevealInFinder: { onRevealInFinder(device) }
                             )
                             .onTapGesture { viewModel.select(device.id) }
                             .motion(.crisp, value: viewModel.selectedID)
@@ -50,11 +57,13 @@ private struct DeviceCardRow: View {
     let device: Device
     let isSelected: Bool
     let transferFraction: Double?
+    let onRevealInFinder: () -> Void
 
     var body: some View {
         DeviceCardView(
             viewModel: cardViewModel,
-            isSelected: isSelected
+            isSelected: isSelected,
+            onRevealInFinder: onRevealInFinder
         )
     }
 

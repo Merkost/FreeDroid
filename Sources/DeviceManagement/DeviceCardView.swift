@@ -6,10 +6,16 @@ public struct DeviceCardView: View {
     @Environment(\.theme) private var theme
     private let viewModel: DeviceCardViewModel
     private let isSelected: Bool
+    private let onRevealInFinder: () -> Void
 
-    public init(viewModel: DeviceCardViewModel, isSelected: Bool) {
+    public init(
+        viewModel: DeviceCardViewModel,
+        isSelected: Bool,
+        onRevealInFinder: @escaping () -> Void
+    ) {
         self.viewModel = viewModel
         self.isSelected = isSelected
+        self.onRevealInFinder = onRevealInFinder
     }
 
     public var body: some View {
@@ -48,6 +54,11 @@ public struct DeviceCardView: View {
         }
         .opacity(viewModel.isReady ? 1.0 : 0.65)
         .allowsHitTesting(viewModel.isReady)
+        .contextMenu {
+            Button("Reveal Transfers in Finder") {
+                onRevealInFinder()
+            }
+        }
     }
 
     private var color: Color {

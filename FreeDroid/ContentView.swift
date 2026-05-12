@@ -19,7 +19,10 @@ struct ContentView: View {
             HStack(spacing: 0) {
                 DeviceListView(
                     viewModel: container.deviceListViewModel,
-                    deviceFractions: container.transfersViewModel.deviceFractions
+                    deviceFractions: container.transfersViewModel.deviceFractions,
+                    onRevealInFinder: { device in
+                        FinderRevealer.revealTransferDestination(for: device.displayName)
+                    }
                 )
                 Divider().overlay(theme.colors.line)
                 detail
