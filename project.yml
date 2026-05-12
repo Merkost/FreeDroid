@@ -72,6 +72,35 @@ targets:
       - target: FreeDroidFS
         embed: true
         codeSign: true
+      - target: FreeDroidProvider
+        embed: true
+        codeSign: true
+
+  FreeDroidProvider:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "15.4"
+    sources:
+      - path: FreeDroidProvider
+    configFiles:
+      Debug: Configs/Local.xcconfig
+      Release: Configs/Local.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.merkost.freedroid.FreeDroidProvider
+        INFOPLIST_FILE: FreeDroidProvider/Info.plist
+        CODE_SIGN_ENTITLEMENTS: FreeDroidProvider/FreeDroidProvider.entitlements
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        SKIP_INSTALL: YES
+        PRODUCT_NAME: FreeDroidProvider
+        MACOSX_DEPLOYMENT_TARGET: "15.4"
+    dependencies:
+      - package: FreeDroidPackages
+        product: FreeDroidProviderShared
 
   FreeDroidFS:
     type: extensionkit-extension
