@@ -96,6 +96,7 @@ struct ContentView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .id(selectedID)
         } else {
             placeholderDetail

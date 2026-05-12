@@ -18,6 +18,7 @@ public struct SidebarFlow<Selection: Hashable, Content: View>: View {
                 ))
                 .id(selection)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .motion(.smooth, value: selection)
     }
 }
