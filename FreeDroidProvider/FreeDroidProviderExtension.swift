@@ -1,16 +1,19 @@
 import FileProvider
+import FreeDroidContentCache
 import FreeDroidProviderShared
 
 final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtension, @unchecked Sendable {
     let domain: NSFileProviderDomain
     let deviceID: DeviceID
     let transport: ProviderTransport
+    let cache: ContentCache
 
     required init(domain: NSFileProviderDomain) {
         self.domain = domain
         let deviceID = DeviceID(raw: domain.identifier.rawValue)
         self.deviceID = deviceID
         self.transport = ProviderTransport(deviceID: deviceID)
+        self.cache = ContentCache()
         super.init()
     }
 
@@ -53,6 +56,22 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 let entry = try await transport.stat(path)
                 progress.totalUnitCount = entry.sizeBytes ?? -1
                 let ext = (entry.name as NSString).pathExtension
+                let key = ContentKey(
+                    deviceID: self.deviceID.raw,
+                    path: path.raw,
+                    mtimeUnix: Int64(entry.modifiedAt?.timeIntervalSince1970 ?? 0),
+                    size: entry.sizeBytes ?? 0
+                )
+                if let hit = await self.cache.lookup(key) {
+                    let cachedURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
+                    try? FileManager.default.linkItem(at: hit, to: cachedURL)
+                    if !FileManager.default.fileExists(atPath: cachedURL.path) {
+                        try FileManager.default.copyItem(at: hit, to: cachedURL)
+                    }
+                    progress.completedUnitCount = entry.sizeBytes ?? 0
+                    handler(cachedURL, ProviderItem(entry: entry, parent: path.parent ?? .root), nil)
+                    return
+                }
                 let tempURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
                 nonisolated(unsafe) let progressURL = tempURL
                 nonisolated(unsafe) let progressRef = progress
@@ -73,6 +92,13 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 let finalSize = (try? FileManager.default.attributesOfItem(atPath: tempURL.path)[.size] as? NSNumber)?.int64Value ?? 0
                 if progress.totalUnitCount < 0 { progress.totalUnitCount = finalSize }
                 progress.completedUnitCount = finalSize
+                let finalKey = ContentKey(
+                    deviceID: self.deviceID.raw,
+                    path: path.raw,
+                    mtimeUnix: Int64(finalEntry.modifiedAt?.timeIntervalSince1970 ?? 0),
+                    size: finalEntry.sizeBytes ?? finalSize
+                )
+                _ = try? await self.cache.store(tempURL, key: finalKey, filename: finalEntry.name)
                 let item = ProviderItem(entry: finalEntry, parent: path.parent ?? .root)
                 handler(tempURL, item, nil)
             } catch let error as TransportError {

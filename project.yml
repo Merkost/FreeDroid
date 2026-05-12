@@ -132,6 +132,8 @@ targets:
     dependencies:
       - package: FreeDroidPackages
         product: FreeDroidProviderShared
+      - package: FreeDroidPackages
+        product: FreeDroidContentCache
       - target: FreeDroidBridge
         embed: true
         codeSign: true

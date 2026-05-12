@@ -20,7 +20,8 @@ let package = Package(
         .library(name: "FileBrowser", targets: ["FileBrowser"]),
         .library(name: "Gallery", targets: ["Gallery"]),
         .library(name: "Transfer", targets: ["Transfer"]),
-        .library(name: "FreeDroidProviderShared", targets: ["FreeDroidProviderShared"])
+        .library(name: "FreeDroidProviderShared", targets: ["FreeDroidProviderShared"]),
+        .library(name: "FreeDroidContentCache", targets: ["FreeDroidContentCache"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
@@ -135,6 +136,17 @@ let package = Package(
         .testTarget(
             name: "FreeDroidProviderSharedTests",
             dependencies: ["FreeDroidProviderShared"],
+            swiftSettings: strictConcurrency
+        ),
+
+        .target(
+            name: "FreeDroidContentCache",
+            dependencies: ["FreeDroidDomain"],
+            swiftSettings: strictConcurrency
+        ),
+        .testTarget(
+            name: "FreeDroidContentCacheTests",
+            dependencies: ["FreeDroidContentCache"],
             swiftSettings: strictConcurrency
         ),
 
