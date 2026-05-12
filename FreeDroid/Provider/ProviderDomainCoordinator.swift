@@ -30,13 +30,23 @@ final class ProviderDomainCoordinator {
     private func removeAllDomains() async {
         do {
             let existing = try await Self.fetchDomains()
-            for domain in existing where domain.identifier.rawValue.hasPrefix("USB-") || domain.identifier.rawValue.contains(":") {
+            let ours = existing.filter { ourIdentifierLooksLikeAndroid($0.identifier.rawValue) }
+            for domain in ours {
                 try? await NSFileProviderManager.remove(domain)
-                providerLogger.info("Cleaned stale domain \(domain.displayName, privacy: .public)")
+                providerLogger.info("Removed domain to force cache flush: \(domain.displayName, privacy: .public)")
             }
         } catch {
             providerLogger.error("List domains failed: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    private func ourIdentifierLooksLikeAndroid(_ raw: String) -> Bool {
+        if raw.hasPrefix("USB-") { return true }
+        if raw.contains(":") { return true }
+        if raw.hasPrefix("emulator-") { return true }
+        if raw.count == 16, raw.allSatisfy({ $0.isHexDigit }) { return true }
+        if raw.range(of: "^[A-Z0-9]{8,}$", options: .regularExpression) != nil { return true }
+        return false
     }
 
     private static func fetchDomains() async throws -> [NSFileProviderDomain] {
@@ -77,11 +87,18 @@ final class ProviderDomainCoordinator {
         )
         do {
             try await NSFileProviderManager.add(domain)
-            active.insert(device.id)
             providerLogger.info("Registered domain for \(device.displayName, privacy: .public)")
         } catch {
-            providerLogger.error("add(\(device.displayName, privacy: .public)): \(String(describing: error), privacy: .public)")
+            providerLogger.info("Domain already registered (or add failed): \(device.displayName, privacy: .public) — \(String(describing: error), privacy: .public)")
         }
+        active.insert(device.id)
+        signalRefresh(for: domain)
+    }
+
+    private func signalRefresh(for domain: NSFileProviderDomain) {
+        guard let manager = NSFileProviderManager(for: domain) else { return }
+        manager.signalEnumerator(for: .workingSet) { _ in }
+        manager.signalEnumerator(for: .rootContainer) { _ in }
     }
 
     private func removeDomain(for deviceID: DeviceID) async {

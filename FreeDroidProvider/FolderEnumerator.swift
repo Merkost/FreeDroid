@@ -3,6 +3,9 @@ import Foundation
 import FreeDroidProviderShared
 
 final class FolderEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
+    static let schemaVersion = "v3-mtime"
+    private static let currentAnchor = NSFileProviderSyncAnchor(Data(schemaVersion.utf8))
+
     private let containerIdentifier: NSFileProviderItemIdentifier
     private let folderPath: RemotePath
     private let transport: ProviderTransport
@@ -40,10 +43,14 @@ final class FolderEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sen
     }
 
     func enumerateChanges(for observer: NSFileProviderChangeObserver, from anchor: NSFileProviderSyncAnchor) {
-        observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+        if anchor == Self.currentAnchor {
+            observer.finishEnumeratingChanges(upTo: anchor, moreComing: false)
+        } else {
+            observer.finishEnumeratingWithError(NSFileProviderError(.syncAnchorExpired))
+        }
     }
 
     func currentSyncAnchor(completionHandler: @escaping (NSFileProviderSyncAnchor?) -> Void) {
-        completionHandler(NSFileProviderSyncAnchor(Data("v0".utf8)))
+        completionHandler(Self.currentAnchor)
     }
 }
