@@ -33,8 +33,9 @@ public final class USBNotificationCenter: @unchecked Sendable {
             notificationPort,
             kIOMatchedNotification,
             matchingDict,
-            { selfPtr, iterator in
-                let center = Unmanaged<USBNotificationCenter>.fromOpaque(selfPtr!).takeUnretainedValue()
+            { rawPtr, iterator in
+                guard let rawPtr else { return }
+                let center = Unmanaged<USBNotificationCenter>.fromOpaque(rawPtr).takeUnretainedValue()
                 center.drainIterator(iterator, attached: true)
             },
             selfPtr,
@@ -46,8 +47,9 @@ public final class USBNotificationCenter: @unchecked Sendable {
             notificationPort,
             kIOTerminatedNotification,
             IOServiceMatching(kIOUSBDeviceClassName),
-            { selfPtr, iterator in
-                let center = Unmanaged<USBNotificationCenter>.fromOpaque(selfPtr!).takeUnretainedValue()
+            { rawPtr, iterator in
+                guard let rawPtr else { return }
+                let center = Unmanaged<USBNotificationCenter>.fromOpaque(rawPtr).takeUnretainedValue()
                 center.drainIterator(iterator, attached: false)
             },
             selfPtr,

@@ -14,6 +14,8 @@ excluded:
   - Packages/FreeDroidADB/.swiftpm
   - Packages/FreeDroidMTP/.build
   - Packages/FreeDroidMTP/.swiftpm
+  - Packages/FreeDroidData/.build
+  - Packages/FreeDroidData/.swiftpm
 
 opt_in_rules:
   - empty_count
