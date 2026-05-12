@@ -155,6 +155,8 @@ public actor ADBSession: Transport {
 
     public func fetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
         let runner = await server.runner(for: serial)
+        let parent = destination.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: destination)
         let compressed = await zstdEnabled()
         _ = try await runner.run(
@@ -167,6 +169,9 @@ public actor ADBSession: Transport {
     }
 
     public func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
+        guard FileManager.default.fileExists(atPath: source.path) else {
+            throw TransportError.notFound(RemotePath(raw: source.path))
+        }
         let runner = await server.runner(for: serial)
         let size = (try? FileManager.default.attributesOfItem(atPath: source.path)[.size] as? NSNumber)?.int64Value ?? 0
         let compressed = await zstdEnabled()
