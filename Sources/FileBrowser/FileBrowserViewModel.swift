@@ -14,15 +14,18 @@ public final class FileBrowserViewModel {
     public private(set) var isLoading = false
     public private(set) var loadStartedAt: Date?
     public private(set) var lastError: TransportError?
-    public var previewURL: URL?
-    public private(set) var isPreparing = false
+    public private(set) var inspectedEntry: RemoteEntry?
+    public private(set) var inspectorPreviewURL: URL?
+    public private(set) var inspectorIsPreparing = false
+    public let deviceID: DeviceID?
 
     private let browseFolderUseCase: BrowseFolderUseCase
     private let renameFileUseCase: RenameFileUseCase
     private let deleteFilesUseCase: DeleteFilesUseCase
     private let createFolderUseCase: CreateFolderUseCase
     private let downloadToTempUseCase: DownloadToTempUseCase?
-    private var previewTask: Task<Void, Never>?
+    private var inspectorTask: Task<Void, Never>?
+    private let inspectorAutoPreviewByteLimit: Int64 = 12 * 1024 * 1024
 
     public init(
         initialPath: RemotePath = .root,
@@ -30,7 +33,8 @@ public final class FileBrowserViewModel {
         renameFile: RenameFileUseCase,
         deleteFiles: DeleteFilesUseCase,
         createFolder: CreateFolderUseCase,
-        downloadToTemp: DownloadToTempUseCase? = nil
+        downloadToTemp: DownloadToTempUseCase? = nil,
+        deviceID: DeviceID? = nil
     ) {
         self.path = initialPath
         self.browseFolderUseCase = browseFolder
@@ -38,31 +42,48 @@ public final class FileBrowserViewModel {
         self.deleteFilesUseCase = deleteFiles
         self.createFolderUseCase = createFolder
         self.downloadToTempUseCase = downloadToTemp
+        self.deviceID = deviceID
     }
 
-    public func previewFile(_ entry: RemoteEntry) {
-        guard let downloader = downloadToTempUseCase else { return }
-        previewTask?.cancel()
-        previewURL = nil
-        isPreparing = true
-        previewTask = Task { [weak self] in
-            defer { Task { @MainActor in self?.isPreparing = false } }
+    public func inspect(_ entry: RemoteEntry?) {
+        inspectorTask?.cancel()
+        inspectorTask = nil
+        inspectorPreviewURL = nil
+        inspectorIsPreparing = false
+        inspectedEntry = entry
+        guard let entry, entry.kind == .file, let downloader = downloadToTempUseCase else { return }
+        guard QuickLookEligibility.isInlinePreviewable(entry.name) else { return }
+        let size = entry.sizeBytes ?? Int64.max
+        guard size <= inspectorAutoPreviewByteLimit else { return }
+        inspectorIsPreparing = true
+        inspectorTask = Task { [weak self, entry] in
+            defer { Task { @MainActor in self?.inspectorIsPreparing = false } }
             do {
                 let url = try await downloader(entry: entry)
                 guard !Task.isCancelled else { return }
-                self?.previewURL = url
+                await MainActor.run {
+                    guard self?.inspectedEntry?.path == entry.path else { return }
+                    self?.inspectorPreviewURL = url
+                }
             } catch {
                 guard !Task.isCancelled else { return }
-                self?.lastError = .ioFailure(message: String(describing: error))
+                await MainActor.run { self?.inspectorPreviewURL = nil }
             }
         }
     }
 
-    public func dismissPreview() {
-        previewTask?.cancel()
-        previewTask = nil
-        previewURL = nil
-        isPreparing = false
+    public func openInspectedFile() async -> URL? {
+        guard let entry = inspectedEntry, let downloader = downloadToTempUseCase else { return nil }
+        if let cached = inspectorPreviewURL { return cached }
+        inspectorIsPreparing = true
+        defer { inspectorIsPreparing = false }
+        do {
+            let url = try await downloader(entry: entry)
+            inspectorPreviewURL = url
+            return url
+        } catch {
+            return nil
+        }
     }
 
     public var breadcrumb: [String] {

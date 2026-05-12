@@ -17,6 +17,40 @@ public struct FileBrowserView: View {
     }
 
     public var body: some View {
+        HStack(spacing: 0) {
+            mainColumn
+            if let inspected = viewModel.inspectedEntry {
+                FileInspectorView(viewModel: viewModel, entry: inspected)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .background(theme.colors.background0)
+        .motion(.smooth, value: viewModel.inspectedEntry?.path)
+        .focusable()
+        .focused($listFocused)
+        .onAppear { listFocused = true }
+        .focusEffectDisabled()
+        .task { await viewModel.reload() }
+        .background(keyboardShortcuts)
+        .sheet(item: $renameTarget) { entry in
+            renameSheet(for: entry)
+        }
+        .sheet(isPresented: $isCreatingFolder) {
+            newFolderSheet
+        }
+        .confirmationDialog(
+            deletionPrompt,
+            isPresented: $pendingDeletion,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task { await viewModel.deleteSelection() }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private var mainColumn: some View {
         ZStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
                 BreadcrumbBar(components: viewModel.breadcrumb) { destination in
@@ -53,42 +87,7 @@ public struct FileBrowserView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .background(theme.colors.background0)
         .motion(.smooth, value: viewModel.selection.count)
-        .focusable()
-        .focused($listFocused)
-        .onAppear { listFocused = true }
-        .focusEffectDisabled()
-        .task { await viewModel.reload() }
-        .background(keyboardShortcuts)
-        .sheet(item: $renameTarget) { entry in
-            renameSheet(for: entry)
-        }
-        .sheet(isPresented: $isCreatingFolder) {
-            newFolderSheet
-        }
-        .confirmationDialog(
-            deletionPrompt,
-            isPresented: $pendingDeletion,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                Task { await viewModel.deleteSelection() }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .background(
-            FileBrowserQLPresenter(url: $viewModel.previewURL)
-                .frame(width: 0, height: 0)
-        )
-        .overlay(alignment: .center) {
-            if viewModel.isPreparing {
-                ZStack {
-                    Color.black.opacity(0.18).ignoresSafeArea()
-                    Spinner(size: 28)
-                }
-            }
-        }
     }
 
     @ViewBuilder
@@ -188,15 +187,19 @@ public struct FileBrowserView: View {
         let modifiers = NSEvent.modifierFlags
         if modifiers.contains(.shift) {
             viewModel.extendSelection(to: entry.path)
-        } else if modifiers.contains(.command) {
-            viewModel.toggleSelection(entry.path)
-        } else if entry.kind == .directory {
-            Task { await viewModel.navigate(to: entry.path) }
-        } else if QuickLookEligibility.isPreviewable(entry.name) {
-            viewModel.previewFile(entry)
-        } else {
-            viewModel.selectOnly(entry.path)
+            return
         }
+        if modifiers.contains(.command) {
+            viewModel.toggleSelection(entry.path)
+            return
+        }
+        if entry.kind == .directory {
+            viewModel.inspect(nil)
+            Task { await viewModel.navigate(to: entry.path) }
+            return
+        }
+        viewModel.selectOnly(entry.path)
+        viewModel.inspect(entry)
     }
 
     private var deletionPrompt: String {

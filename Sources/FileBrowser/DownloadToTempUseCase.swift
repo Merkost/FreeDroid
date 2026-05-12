@@ -45,4 +45,10 @@ public enum QuickLookEligibility {
             || type.conforms(to: .audio)
             || type.conforms(to: .pdf)
     }
+
+    public static func isInlinePreviewable(_ filename: String) -> Bool {
+        let ext = (filename as NSString).pathExtension
+        guard let type = UTType(filenameExtension: ext) else { return false }
+        return type.conforms(to: .image) || type.conforms(to: .pdf)
+    }
 }
