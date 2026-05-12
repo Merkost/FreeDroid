@@ -2,6 +2,7 @@ import Foundation
 import FSKit
 import FreeDroidDomain
 import FreeDroidIPC
+import FreeDroidContentCache
 import os.log
 
 private let logger = Logger(subsystem: "com.merkost.freedroid.FreeDroidFS", category: "volume")
@@ -10,6 +11,7 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
     let deviceID: DeviceID
     let client: XPCClient
     let cache = FreeDroidItemCache()
+    let contentCache = ContentCache()
     private let displayName: String
 
     var supportedVolumeCapabilities: FSVolume.SupportedCapabilities {
@@ -152,6 +154,9 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
         )
         let newItem = FreeDroidItem(deviceID: parent.deviceID, entry: entry)
         await cache.invalidate(parent.entry.path)
+        let newPathRaw = path.raw
+        let deviceIDRaw = parent.deviceID.raw
+        await contentCache.evict { $0.path == newPathRaw && $0.deviceID == deviceIDRaw }
         return (newItem, FSFileName(string: entry.name))
     }
 
@@ -179,6 +184,9 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
     ) async throws {
         guard let fdItem = item as? FreeDroidItem else { return }
         _ = try await client.send(.remove(deviceID: fdItem.deviceID, path: fdItem.entry.path), expecting: Data.self)
+        let removedPath = fdItem.entry.path.raw
+        let removedDeviceID = fdItem.deviceID.raw
+        await contentCache.evict { $0.path == removedPath && $0.deviceID == removedDeviceID }
         if let parentPath = fdItem.entry.path.parent {
             await cache.invalidate(parentPath)
         }
@@ -208,6 +216,10 @@ final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOp
             .rename(deviceID: fdItem.deviceID, from: fdItem.entry.path, to: destPath),
             expecting: Data.self
         )
+        let srcPathRaw = fdItem.entry.path.raw
+        let destPathRaw = destPath.raw
+        let renameDeviceID = fdItem.deviceID.raw
+        await contentCache.evict { ($0.path == srcPathRaw || $0.path == destPathRaw) && $0.deviceID == renameDeviceID }
         if let sourceParent = fdItem.entry.path.parent {
             await cache.invalidate(sourceParent)
         }
@@ -280,8 +292,60 @@ extension FreeDroidVolume {
         into buffer: FSMutableFileDataBuffer
     ) async throws -> Int {
         guard let fdItem = item as? FreeDroidItem else { return 0 }
+        let entry = fdItem.entry
+        let contentKey = ContentKey(
+            deviceID: fdItem.deviceID.raw,
+            path: entry.path.raw,
+            mtimeUnix: Int64(entry.modifiedAt?.timeIntervalSince1970 ?? 0),
+            size: entry.sizeBytes ?? 0
+        )
+        if let cachedURL = await contentCache.lookup(contentKey) {
+            let fileHandle = try FileHandle(forReadingFrom: cachedURL)
+            try fileHandle.seek(toOffset: UInt64(offset))
+            let data = try fileHandle.read(upToCount: length) ?? Data()
+            try fileHandle.close()
+            let count = min(data.count, buffer.length)
+            buffer.withUnsafeMutableBytes { rawBuffer in
+                data.withUnsafeBytes { dataBuffer in
+                    rawBuffer.copyMemory(from: UnsafeRawBufferPointer(rebasing: dataBuffer.prefix(count)))
+                }
+            }
+            return count
+        }
+        if offset == 0, let totalSize = entry.sizeBytes, totalSize > 0 {
+            var accumulated = Data()
+            var pos: Int64 = 0
+            let chunkSize = 1024 * 1024
+            while pos < totalSize {
+                let chunk: Data = try await client.send(
+                    .read(
+                        deviceID: fdItem.deviceID,
+                        path: entry.path,
+                        offset: pos,
+                        length: min(chunkSize, Int(totalSize - pos))
+                    ),
+                    expecting: Data.self
+                )
+                if chunk.isEmpty { break }
+                accumulated.append(chunk)
+                pos += Int64(chunk.count)
+            }
+            let tmpURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString + "-" + entry.name)
+            try accumulated.write(to: tmpURL)
+            _ = try? await contentCache.store(tmpURL, key: contentKey, filename: entry.name)
+            try? FileManager.default.removeItem(at: tmpURL)
+
+            let count = min(min(accumulated.count, length), buffer.length)
+            buffer.withUnsafeMutableBytes { rawBuffer in
+                accumulated.withUnsafeBytes { dataBuffer in
+                    rawBuffer.copyMemory(from: UnsafeRawBufferPointer(rebasing: dataBuffer.prefix(count)))
+                }
+            }
+            return count
+        }
         let data: Data = try await client.send(
-            .read(deviceID: fdItem.deviceID, path: fdItem.entry.path, offset: Int64(offset), length: length),
+            .read(deviceID: fdItem.deviceID, path: entry.path, offset: Int64(offset), length: length),
             expecting: Data.self
         )
         let count = min(data.count, buffer.length)
@@ -303,6 +367,9 @@ extension FreeDroidVolume {
             .write(deviceID: fdItem.deviceID, path: fdItem.entry.path, data: data, offset: Int64(offset)),
             expecting: Data.self
         )
+        let affectedPath = fdItem.entry.path.raw
+        let deviceIDRaw = fdItem.deviceID.raw
+        await contentCache.evict { $0.path == affectedPath && $0.deviceID == deviceIDRaw }
         if let parentPath = fdItem.entry.path.parent {
             await cache.invalidate(parentPath)
         }
