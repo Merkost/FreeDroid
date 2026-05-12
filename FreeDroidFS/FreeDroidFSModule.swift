@@ -3,7 +3,7 @@ import FSKit
 import FreeDroidDomain
 import os.log
 
-private let logger = Logger(subsystem: "app.freedroid.FreeDroidFS", category: "module")
+private let logger = Logger(subsystem: "com.merkost.freedroid.FreeDroidFS", category: "module")
 
 final class FreeDroidFSModule: FSUnaryFileSystem, FSUnaryFileSystemOperations {
     let client = XPCClient()

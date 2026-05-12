@@ -4,7 +4,7 @@ import FreeDroidDomain
 import FreeDroidIPC
 import os.log
 
-private let logger = Logger(subsystem: "app.freedroid.FreeDroidFS", category: "volume")
+private let logger = Logger(subsystem: "com.merkost.freedroid.FreeDroidFS", category: "volume")
 
 final class FreeDroidVolume: FSVolume, FSVolume.Operations, FSVolume.ReadWriteOperations {
     let deviceID: DeviceID

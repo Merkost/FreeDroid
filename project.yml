@@ -1,6 +1,6 @@
 name: FreeDroid
 options:
-  bundleIdPrefix: app.freedroid
+  bundleIdPrefix: com.merkost.freedroid
   deploymentTarget:
     macOS: "15.4"
   developmentLanguage: en
@@ -35,7 +35,7 @@ targets:
         optional: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.freedroid.FreeDroid
+        PRODUCT_BUNDLE_IDENTIFIER: com.merkost.freedroid
         INFOPLIST_FILE: FreeDroid/Info.plist
         CODE_SIGN_ENTITLEMENTS: FreeDroid/FreeDroid.entitlements
         CODE_SIGN_STYLE: Automatic
@@ -78,7 +78,7 @@ targets:
       - path: FreeDroidFS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.freedroid.FreeDroid.FreeDroidFS
+        PRODUCT_BUNDLE_IDENTIFIER: com.merkost.freedroid.FreeDroidFS
         INFOPLIST_FILE: FreeDroidFS/Info.plist
         CODE_SIGN_ENTITLEMENTS: FreeDroidFS/FreeDroidFS.entitlements
         CODE_SIGN_STYLE: Automatic

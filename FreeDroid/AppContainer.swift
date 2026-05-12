@@ -11,7 +11,7 @@ import FileBrowser
 import Gallery
 import Transfer
 
-private let mountLogger = Logger(subsystem: "app.freedroid", category: "mount")
+private let mountLogger = Logger(subsystem: "com.merkost.freedroid", category: "mount")
 
 @MainActor
 @Observable
@@ -104,7 +104,7 @@ final class AppContainer {
     @available(macOS 15.4, *)
     private func observeDevicesForMounting() async {
         let logger = mountLogger
-        let freedroidModuleID = "app.freedroid.FreeDroid.FreeDroidFS"
+        let freedroidModuleID = "com.merkost.freedroid.FreeDroidFS"
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             FSClient.shared.fetchInstalledExtensions { modules, error in
                 defer { continuation.resume() }

@@ -4,7 +4,7 @@ import FreeDroidDomain
 import FreeDroidADB
 import FreeDroidMTP
 
-private let registryLogger = Logger(subsystem: "app.freedroid", category: "registry")
+private let registryLogger = Logger(subsystem: "com.merkost.freedroid", category: "registry")
 
 public actor DeviceRegistry {
     private var records: [DeviceID: DeviceRecord] = [:]

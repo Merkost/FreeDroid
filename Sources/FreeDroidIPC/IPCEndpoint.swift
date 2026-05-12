@@ -1,3 +1,3 @@
 public enum IPCEndpoint {
-    public static let machServiceName = "app.freedroid.XPCFileServer"
+    public static let machServiceName = "com.merkost.freedroid.XPCFileServer"
 }

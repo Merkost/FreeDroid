@@ -390,7 +390,7 @@ func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection
 }
 ```
 
-`FreeDroidFSAuditor.isExtensionPID` reads the process's code-signing requirements and verifies the Team ID + bundle identifier matches `app.freedroid.FreeDroid.FreeDroidFS`. For dev builds skip if signing identity is ad-hoc.
+`FreeDroidFSAuditor.isExtensionPID` reads the process's code-signing requirements and verifies the Team ID + bundle identifier matches `com.merkost.freedroid.FreeDroidFS`. For dev builds skip if signing identity is ad-hoc.
 
 - [ ] **Step 2: Add a heartbeat to detect dead extension**
 
@@ -467,7 +467,7 @@ import FSKit
 import FreeDroidDomain
 import os.log
 
-private let mountLogger = Logger(subsystem: "app.freedroid", category: "mount")
+private let mountLogger = Logger(subsystem: "com.merkost.freedroid", category: "mount")
 
 @MainActor
 final class MountCoordinator {

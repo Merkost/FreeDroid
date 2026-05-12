@@ -82,7 +82,7 @@ Write `Packages/FreeDroidIPC/Sources/FreeDroidIPC/IPCEndpoint.swift`:
 
 ```swift
 public enum IPCEndpoint {
-    public static let machServiceName = "app.freedroid.XPCFileServer"
+    public static let machServiceName = "com.merkost.freedroid.XPCFileServer"
 }
 ```
 
@@ -380,11 +380,11 @@ In Xcode, edit `FreeDroid.entitlements`:
 ```xml
 <key>com.apple.security.application-groups</key>
 <array>
-    <string>group.app.freedroid</string>
+    <string>group.com.merkost.freedroid</string>
 </array>
 <key>com.apple.security.temporary-exception.mach-register.global-name</key>
 <array>
-    <string>app.freedroid.XPCFileServer</string>
+    <string>com.merkost.freedroid.XPCFileServer</string>
 </array>
 ```
 
@@ -413,7 +413,7 @@ In Xcode: File → New → Target → macOS → File System Extension → Next.
 Settings:
 - Product Name: `FreeDroidFS`
 - Team: same as app
-- Bundle Identifier: `app.freedroid.FreeDroid.FreeDroidFS`
+- Bundle Identifier: `com.merkost.freedroid.FreeDroidFS`
 - Embed in Application: `FreeDroid`
 
 Xcode generates `FreeDroidFS/` folder with placeholder Swift files and `Info.plist`.
@@ -451,7 +451,7 @@ In `FreeDroidFS/FreeDroidFS.entitlements`:
     <true/>
     <key>com.apple.security.application-groups</key>
     <array>
-        <string>group.app.freedroid</string>
+        <string>group.com.merkost.freedroid</string>
     </array>
 </dict>
 ```
