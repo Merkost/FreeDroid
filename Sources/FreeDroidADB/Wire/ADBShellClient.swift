@@ -57,7 +57,10 @@ public actor ADBShellClient {
                     exitCode: exitCode
                 )
             default:
-                throw ADBWireError.framingViolation
+                throw ADBWireError.framingViolation(
+                    context: "shell_v2 unknown msgType",
+                    firstBytes: [msgType]
+                )
             }
         }
     }

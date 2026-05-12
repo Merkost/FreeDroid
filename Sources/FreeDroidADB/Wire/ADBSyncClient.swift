@@ -66,14 +66,22 @@ public actor ADBSyncClient {
                 let msg = try await connection.readString(Int(length))
                 throw ADBWireError.syncFailed(msg)
             default:
-                throw ADBWireError.framingViolation
+                throw ADBWireError.framingViolation(
+                    context: "listV2 unexpected id '\(idStr)'",
+                    firstBytes: Array(id)
+                )
             }
         }
     }
 
     private func readDnt2Entry(length: Int) async throws -> SyncEntry {
         let payload = try await connection.readBytes(length)
-        guard payload.count >= 36 else { throw ADBWireError.framingViolation }
+        guard payload.count >= 36 else {
+            throw ADBWireError.framingViolation(
+                context: "DNT2 payload < 36 bytes (got \(payload.count))",
+                firstBytes: Array(payload.prefix(16))
+            )
+        }
         let mode = payload.readU32LE(at: 0)
         let size64 = payload.withUnsafeBytes { ptr -> UInt64 in
             guard ptr.count >= 16 else { return 0 }
@@ -98,7 +106,12 @@ public actor ADBSyncClient {
             return ptr.loadUnaligned(fromByteOffset: 48, as: UInt32.self).littleEndian
         }
         let nameStart = 52
-        guard payload.count >= nameStart + Int(nameLen) else { throw ADBWireError.framingViolation }
+        guard payload.count >= nameStart + Int(nameLen) else {
+            throw ADBWireError.framingViolation(
+                context: "DNT2 name truncated (need \(nameStart + Int(nameLen)), have \(payload.count))",
+                firstBytes: Array(payload.prefix(16))
+            )
+        }
         let name = String(decoding: payload[nameStart..<nameStart + Int(nameLen)], as: UTF8.self)
         return SyncEntry(
             name: name,
@@ -131,13 +144,21 @@ public actor ADBSyncClient {
             let msg = try await connection.readString(Int(length))
             throw ADBWireError.syncFailed(msg)
         default:
-            throw ADBWireError.framingViolation
+            throw ADBWireError.framingViolation(
+                context: "statV2 unexpected id '\(idStr)'",
+                firstBytes: Array(id)
+            )
         }
     }
 
     private func readSta2Entry(path: String, length: Int) async throws -> SyncEntry {
         let payload = try await connection.readBytes(length)
-        guard payload.count >= 24 else { throw ADBWireError.framingViolation }
+        guard payload.count >= 24 else {
+            throw ADBWireError.framingViolation(
+                context: "STA2 payload < 24 bytes (got \(payload.count))",
+                firstBytes: Array(payload.prefix(16))
+            )
+        }
         let mode = payload.readU32LE(at: 0)
         let size64 = payload.withUnsafeBytes { ptr -> UInt64 in
             guard ptr.count >= 16 else { return 0 }
@@ -200,7 +221,10 @@ public actor ADBSyncClient {
                 let msg = try await connection.readString(Int(length))
                 throw ADBWireError.syncFailed(msg)
             default:
-                throw ADBWireError.framingViolation
+                throw ADBWireError.framingViolation(
+                    context: "recv unexpected id '\(idStr)'",
+                    firstBytes: Array(id)
+                )
             }
         }
     }
@@ -249,7 +273,10 @@ public actor ADBSyncClient {
             let msg = try await connection.readString(Int(length))
             throw ADBWireError.syncFailed(msg)
         default:
-            throw ADBWireError.framingViolation
+            throw ADBWireError.framingViolation(
+                context: "send completion unexpected id '\(idStr)'",
+                firstBytes: Array(id)
+            )
         }
     }
 }

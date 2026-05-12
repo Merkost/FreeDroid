@@ -4,7 +4,7 @@ public enum ADBWireError: Error, Sendable {
     case okayExpected(got: String)
     case syncFailed(String)
     case socketClosed
-    case framingViolation
+    case framingViolation(context: String, firstBytes: [UInt8])
 
     public var asTransportError: TransportError {
         switch self {
@@ -14,8 +14,9 @@ public enum ADBWireError: Error, Sendable {
             return .ioFailure(message: "ADB sync failed: \(msg)")
         case .socketClosed:
             return .notConnected
-        case .framingViolation:
-            return .ioFailure(message: "ADB wire protocol framing violation")
+        case .framingViolation(let context, let bytes):
+            let hex = bytes.map { String(format: "%02x", $0) }.joined(separator: " ")
+            return .ioFailure(message: "ADB wire framing violation [\(context)] first bytes: \(hex)")
         }
     }
 }
