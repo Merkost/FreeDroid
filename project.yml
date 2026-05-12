@@ -73,6 +73,39 @@ targets:
       - target: FreeDroidProvider
         embed: true
         codeSign: true
+      - target: FreeDroidBridge
+        embed: true
+        codeSign: true
+
+  FreeDroidBridge:
+    type: xpc-service
+    platform: macOS
+    deploymentTarget: "15.4"
+    sources:
+      - path: FreeDroidBridge
+    configFiles:
+      Debug: Configs/Local.xcconfig
+      Release: Configs/Local.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.merkost.freedroid.FreeDroidBridge
+        INFOPLIST_FILE: FreeDroidBridge/Info.plist
+        CODE_SIGN_ENTITLEMENTS: FreeDroidBridge/FreeDroidBridge.entitlements
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        SKIP_INSTALL: YES
+        PRODUCT_NAME: FreeDroidBridge
+        MACOSX_DEPLOYMENT_TARGET: "15.4"
+    dependencies:
+      - package: FreeDroidPackages
+        product: FreeDroidIPC
+      - package: FreeDroidPackages
+        product: FreeDroidDomain
+      - package: FreeDroidPackages
+        product: FreeDroidADB
 
   FreeDroidProvider:
     type: app-extension
@@ -99,8 +132,6 @@ targets:
     dependencies:
       - package: FreeDroidPackages
         product: FreeDroidProviderShared
-      - package: FreeDroidPackages
-        product: FreeDroidADB
 
 schemes:
   FreeDroid:

@@ -25,8 +25,7 @@ final class FolderEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sen
         nonisolated(unsafe) let path = folderPath
         Task {
             do {
-                let session = try await transport.ensure()
-                let entries = try await session.list(path)
+                let entries = try await transport.list(path)
                 let items: [NSFileProviderItem] = entries.map {
                     ProviderItem(entry: $0, parent: path)
                 }
