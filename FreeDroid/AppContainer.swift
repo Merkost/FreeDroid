@@ -17,6 +17,7 @@ private let mountLogger = Logger(subsystem: "app.freedroid", category: "mount")
 @Observable
 final class AppContainer {
     let bundleVersion: String
+    let preferences = AppPreferences()
 
     let adbServer: ADBServer
     let mtpRuntime = MTPRuntime()

@@ -29,5 +29,10 @@ struct FreeDroidApp: App {
                 }
             }
         }
+
+        Settings {
+            SettingsView()
+                .environment(container)
+        }
     }
 }

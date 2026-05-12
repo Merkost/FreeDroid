@@ -8,22 +8,31 @@ import Transfer
 
 struct ContentView: View {
     @Environment(AppContainer.self) private var container
-    @State private var theme: Theme = .dark
+    @Environment(\.colorScheme) private var systemColorScheme
+    @Environment(\.openSettings) private var openSettings
     @State private var tab: DetailTab = .files
 
     enum DetailTab: Hashable { case files, gallery }
+
+    private var theme: Theme {
+        container.preferences.theme(for: systemColorScheme)
+    }
 
     var body: some View {
         ZStack {
             AmbientGradientBackground().ignoresSafeArea()
             HStack(spacing: 0) {
-                DeviceListView(
-                    viewModel: container.deviceListViewModel,
-                    deviceFractions: container.transfersViewModel.deviceFractions,
-                    onRevealInFinder: { device in
-                        FinderRevealer.revealTransferDestination(for: device.displayName)
-                    }
-                )
+                ZStack(alignment: .bottomLeading) {
+                    DeviceListView(
+                        viewModel: container.deviceListViewModel,
+                        deviceFractions: container.transfersViewModel.deviceFractions,
+                        onRevealInFinder: { device in
+                            FinderRevealer.revealTransferDestination(for: device.displayName)
+                        }
+                    )
+                    appearanceMenu
+                        .padding(Spacing.md)
+                }
                 Divider().overlay(theme.colors.line)
                 detail
             }
@@ -58,6 +67,30 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private var appearanceMenu: some View {
+        @Bindable var preferences = container.preferences
+        return Menu {
+            Picker("Appearance", selection: $preferences.appearance) {
+                ForEach(AppearanceMode.allCases) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            Divider()
+            Button("Settings\u{2026}") {
+                openSettings()
+            }
+            .keyboardShortcut(",", modifiers: .command)
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 14))
+                .foregroundStyle(theme.colors.text2)
+                .padding(8)
+                .background(Circle().fill(.ultraThinMaterial))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 
     @ViewBuilder
