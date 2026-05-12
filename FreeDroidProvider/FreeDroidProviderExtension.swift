@@ -156,12 +156,55 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         baseVersion version: NSFileProviderItemVersion,
         changedFields: NSFileProviderItemFields,
         contents newContents: URL?,
-        options: NSFileProviderModifyItemOptions,
+        options: NSFileProviderModifyItemOptions = [],
         request: NSFileProviderRequest,
-        completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, (any Error)?) -> Void
+        completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
     ) -> Progress {
-        completionHandler(nil, [], false, NSFileProviderError(.noSuchItem) as NSError)
-        return Progress()
+        nonisolated(unsafe) let handler = completionHandler
+        nonisolated(unsafe) let progress = Progress(totalUnitCount: 1)
+        let itemIdentifierRaw = item.itemIdentifier.rawValue
+        let parentIdentifier = item.parentItemIdentifier
+        let filename = item.filename
+        Task {
+            do {
+                guard let path = ItemIdentifier.decode(itemIdentifierRaw) else {
+                    throw NSFileProviderError(.noSuchItem)
+                }
+                var currentPath = path
+
+                if changedFields.contains(.parentItemIdentifier) || changedFields.contains(.filename) {
+                    let newParent = try resolveParent(parentIdentifier)
+                    let target = newParent.appending(filename)
+                    if target != currentPath {
+                        _ = try await bridge.send(
+                            .rename(deviceID: deviceID, from: currentPath, to: target),
+                            expecting: Data.self
+                        )
+                        currentPath = target
+                    }
+                }
+
+                if changedFields.contains(.contents), let newContents {
+                    let data = try Data(contentsOf: newContents)
+                    _ = try await bridge.send(
+                        .write(deviceID: deviceID, path: currentPath, data: data, offset: 0),
+                        expecting: Data.self
+                    )
+                }
+
+                let entry = try await bridge.send(
+                    .stat(deviceID: deviceID, path: currentPath),
+                    expecting: RemoteEntry.self
+                )
+                progress.completedUnitCount = 1
+                handler(ProviderItem(entry: entry, parent: currentPath.parent ?? .root), [], false, nil)
+            } catch let error as TransportError {
+                handler(nil, [], false, ProviderError.map(error))
+            } catch {
+                handler(nil, [], false, error)
+            }
+        }
+        return progress
     }
 
     func deleteItem(
