@@ -46,6 +46,13 @@ public actor LiveADBRunner: ADBRunner {
             process.standardError = stderrPipe
 
             let resolver = ContinuationResolver(continuation: continuation)
+            let buffer = StreamingBuffer()
+
+            stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
+                let chunk = handle.availableData
+                if chunk.isEmpty { return }
+                buffer.append(chunk)
+            }
 
             let timeoutTask = Task {
                 try? await Task.sleep(for: timeout)
@@ -57,9 +64,12 @@ public actor LiveADBRunner: ADBRunner {
 
             process.terminationHandler = { proc in
                 timeoutTask.cancel()
-                let outData = (try? stdoutPipe.fileHandleForReading.readToEnd()) ?? Data()
+                stdoutPipe.fileHandleForReading.readabilityHandler = nil
+                if let tail = try? stdoutPipe.fileHandleForReading.readToEnd() {
+                    buffer.append(tail)
+                }
                 let errData = (try? stderrPipe.fileHandleForReading.readToEnd()) ?? Data()
-                let stdout = String(data: outData, encoding: .utf8) ?? ""
+                let stdout = String(data: buffer.snapshot(), encoding: .utf8) ?? ""
                 let stderr = String(data: errData, encoding: .utf8) ?? ""
                 let output = ADBProcessOutput(exitCode: proc.terminationStatus, stdout: stdout, stderr: stderr)
                 if proc.terminationStatus != 0 {
@@ -112,6 +122,24 @@ public actor LiveADBRunner: ADBRunner {
             } catch {
                 resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))
             }
+        }
+    }
+
+    private final class StreamingBuffer: @unchecked Sendable {
+        private let lock = NSLock()
+        private var bytes = Data()
+
+        func append(_ chunk: Data) {
+            lock.lock()
+            bytes.append(chunk)
+            lock.unlock()
+        }
+
+        func snapshot() -> Data {
+            lock.lock()
+            let copy = bytes
+            lock.unlock()
+            return copy
         }
     }
 

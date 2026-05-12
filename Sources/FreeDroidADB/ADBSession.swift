@@ -49,7 +49,7 @@ public actor ADBSession: Transport {
         let runner = await server.runner(for: serial)
         let out = try await runner.run(
             .shell(serial: serial, script: "ls -alL \(escape(path.raw))/"),
-            timeout: .seconds(15)
+            timeout: .seconds(45)
         )
         let lines = out.stdout.split(separator: "\n").map(String.init)
         return lines.compactMap { line -> RemoteEntry? in
