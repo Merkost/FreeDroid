@@ -53,6 +53,7 @@ public final class AppPreferences {
     private static let appearanceKey = "FreeDroid.Appearance"
     private static let parallelTransfersKey = "FreeDroid.ParallelTransfersPerDevice"
     private static let wireProtocolKey = "freedroid.useWireClient"
+    private static let wireResetMigrationKey = "FreeDroid.WireClientReset.v1"
     private static let sharedSuite = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
 
     public init() {
@@ -61,6 +62,10 @@ public final class AppPreferences {
         self.appearance = AppearanceMode(rawValue: stored) ?? .system
         let parallelStored = UserDefaults.standard.integer(forKey: Self.parallelTransfersKey)
         self.parallelTransfers = ParallelTransfers(rawValue: parallelStored) ?? .three
+        if !Self.sharedSuite.bool(forKey: Self.wireResetMigrationKey) {
+            Self.sharedSuite.set(false, forKey: Self.wireProtocolKey)
+            Self.sharedSuite.set(true, forKey: Self.wireResetMigrationKey)
+        }
         self.useWireProtocol = Self.sharedSuite.bool(forKey: Self.wireProtocolKey)
     }
 

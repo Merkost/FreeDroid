@@ -182,8 +182,15 @@ public actor ADBSession: Transport {
             .push(serial: serial, local: source.path, remote: path.raw, compressed: compressed),
             timeout: .seconds(600)
         )
+        await rescanMediaStore(path: path)
         progress?(size, size)
         return size
+    }
+
+    private func rescanMediaStore(path: RemotePath) async {
+        let runner = await server.runner(for: serial)
+        let script = "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d 'file://\(path.raw)'"
+        _ = try? await runner.run(.shell(serial: serial, script: script), timeout: .seconds(5))
     }
 
     public func read(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
