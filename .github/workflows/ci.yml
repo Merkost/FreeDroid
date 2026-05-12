@@ -89,10 +89,23 @@ jobs:
           cd Packages/FreeDroidData
           swift test --parallel
 
+  test-device-mgmt:
+    name: Test DeviceManagement
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.3'
+      - name: Build & test
+        run: |
+          cd Packages/Features/DeviceManagement
+          swift test --parallel
+
   build-app:
     name: Build FreeDroid app
     runs-on: macos-15
-    needs: [test-domain, test-ui, test-adb, test-mtp, test-data]
+    needs: [test-domain, test-ui, test-adb, test-mtp, test-data, test-device-mgmt]
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
