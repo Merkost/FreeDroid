@@ -78,9 +78,12 @@ struct ContentView: View {
 
     private var appHeader: some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: "smartphone")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(theme.colors.adb)
+            if let icon = NSApp.applicationIconImage {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 22, height: 22)
+            }
             Text("FreeDroid")
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .foregroundStyle(theme.colors.text0)

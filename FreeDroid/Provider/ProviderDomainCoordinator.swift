@@ -20,8 +20,34 @@ final class ProviderDomainCoordinator {
         guard task == nil else { return }
         task = Task { [weak self] in
             guard let self else { return }
+            await self.removeAllDomains()
             for await snapshot in await self.registry.observe() {
                 await self.reconcile(snapshot)
+            }
+        }
+    }
+
+    private func removeAllDomains() async {
+        do {
+            let existing = try await Self.fetchDomains()
+            for domain in existing where domain.identifier.rawValue.hasPrefix("USB-") || domain.identifier.rawValue.contains(":") {
+                try? await NSFileProviderManager.remove(domain)
+                providerLogger.info("Cleaned stale domain \(domain.displayName, privacy: .public)")
+            }
+        } catch {
+            providerLogger.error("List domains failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private static func fetchDomains() async throws -> [NSFileProviderDomain] {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[NSFileProviderDomain], Error>) in
+            NSFileProviderManager.getDomainsWithCompletionHandler { (domains: [NSFileProviderDomain], error: Error?) in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    nonisolated(unsafe) let result = domains
+                    continuation.resume(returning: result)
+                }
             }
         }
     }
