@@ -116,8 +116,16 @@ public actor DeviceRegistry {
             into: &newRecords
         )
         addUnauthorizedADBRecords(adbDevices: adbDevices, into: &newRecords)
+        let coveredVendorProducts = Set(
+            newRecords.values.compactMap { record -> USBVendorProduct? in
+                guard record.device.transport == .mtp else { return nil }
+                return usbSnapshot.first { $0.serialNumber == record.device.id.raw }
+                    .map { USBVendorProduct(vendorID: $0.vendorID, productID: $0.productID) }
+            }
+        ).union(knownADBDescriptors)
         addChargingOnlyRecords(coveredSerials: Set(newRecords.keys.map(\.raw)),
                                authorizedSerials: authorizedSerials,
+                               coveredVendorProducts: coveredVendorProducts,
                                into: &newRecords)
         for (oldID, oldRecord) in records where newRecords[oldID] == nil {
             let misses = (missedRescans[oldID] ?? 0) + 1
@@ -282,12 +290,15 @@ public actor DeviceRegistry {
     private func addChargingOnlyRecords(
         coveredSerials: Set<String>,
         authorizedSerials: Set<String>,
+        coveredVendorProducts: Set<USBVendorProduct>,
         into newRecords: inout [DeviceID: DeviceRecord]
     ) {
         for descriptor in usbSnapshot where AndroidVendorIDs.isAndroidVendor(descriptor.vendorID) {
             let serial = descriptor.serialNumber ?? "usb-\(descriptor.locationID)"
+            let vendorProduct = USBVendorProduct(vendorID: descriptor.vendorID, productID: descriptor.productID)
             let alreadyCovered = coveredSerials.contains(serial)
                 || authorizedSerials.contains(where: { serial.contains($0) || $0.contains(serial) })
+                || coveredVendorProducts.contains(vendorProduct)
             if alreadyCovered { continue }
             let deviceID = DeviceID(raw: serial)
             if newRecords[deviceID] != nil { continue }

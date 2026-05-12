@@ -70,7 +70,7 @@ public struct DeviceCardView: View {
     }
 
     private var readyFooter: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             if let storage = viewModel.storageDescription {
                 Text(storage)
                     .font(Typography.caption)
@@ -79,16 +79,34 @@ public struct DeviceCardView: View {
             if let fraction = viewModel.storageFraction {
                 StorageBar(fraction: fraction, tint: color)
             }
-            HStack(spacing: Spacing.xs) {
-                Button {
-                    onShowInFinder()
-                } label: {
-                    Label("Show in Finder", systemImage: "folder")
-                        .font(Typography.caption)
+            HStack(spacing: Spacing.xs + 2) {
+                if let badge = viewModel.finderBadgeText {
+                    HStack(spacing: 4) {
+                        Image(systemName: viewModel.hasFinderIntegration ? "checkmark.circle.fill" : "info.circle")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(badge)
+                            .font(Typography.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(viewModel.hasFinderIntegration ? theme.colors.accent : theme.colors.text2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill((viewModel.hasFinderIntegration ? theme.colors.accent : theme.colors.text2).opacity(0.12))
+                    )
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(theme.colors.accent)
                 Spacer(minLength: 0)
+                if viewModel.hasFinderIntegration {
+                    Button {
+                        onShowInFinder()
+                    } label: {
+                        Label("Open", systemImage: "arrow.up.right")
+                            .font(Typography.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(theme.colors.accent)
+                }
             }
         }
     }

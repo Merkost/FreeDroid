@@ -53,12 +53,21 @@ public final class DeviceCardViewModel: Identifiable {
         switch device.connectionState {
         case .ready: return nil
         case .pendingAuthorization: return "Tap Allow on your phone"
-        case .chargingOnly: return "Switch USB mode to File Transfer"
+        case .chargingOnly: return "Set USB to File Transfer, or enable USB Debugging"
         }
     }
 
     public var isReady: Bool {
         device.connectionState == .ready
+    }
+
+    public var hasFinderIntegration: Bool {
+        device.connectionState == .ready && device.transport == .adb
+    }
+
+    public var finderBadgeText: String? {
+        guard isReady else { return nil }
+        return device.transport == .adb ? "In Finder" : "In-app only"
     }
 
     public var capacityDescription: String? {
