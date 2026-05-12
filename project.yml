@@ -21,6 +21,14 @@ packages:
     path: Packages/FreeDroidDomain
   FreeDroidUI:
     path: Packages/FreeDroidUI
+  FreeDroidADB:
+    path: Packages/FreeDroidADB
+  FreeDroidMTP:
+    path: Packages/FreeDroidMTP
+  FreeDroidData:
+    path: Packages/FreeDroidData
+  DeviceManagement:
+    path: Packages/Features/DeviceManagement
 
 targets:
   FreeDroid:
@@ -51,3 +59,7 @@ targets:
         product: FreeDroidDomain
       - package: FreeDroidUI
         product: FreeDroidUI
+      - package: FreeDroidData
+        product: FreeDroidData
+      - package: DeviceManagement
+        product: DeviceManagement

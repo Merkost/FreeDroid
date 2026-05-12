@@ -35,3 +35,10 @@ public actor ADBServer {
         return runner
     }
 }
+
+public extension ADBServer {
+    static func liveSync(port: Int = 5037) throws -> ADBServer {
+        let binary = try ADBBinary.path()
+        return ADBServer(runner: LiveADBRunner(binary: binary, port: port))
+    }
+}

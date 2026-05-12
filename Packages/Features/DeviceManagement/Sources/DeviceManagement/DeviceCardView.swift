@@ -47,7 +47,7 @@ public struct DeviceCardView: View {
         case .mtp: theme.colors.mtp
         case .wifi: theme.colors.wifi
         case .off: theme.colors.text2
-        case .custom(let c): c
+        case .custom(let customColor): customColor
         }
     }
 }
