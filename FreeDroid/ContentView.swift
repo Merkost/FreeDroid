@@ -19,22 +19,33 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             AmbientGradientBackground().ignoresSafeArea()
-            HStack(spacing: 0) {
-                ZStack(alignment: .bottomLeading) {
-                    DeviceListView(
-                        viewModel: container.deviceListViewModel,
-                        deviceFractions: container.transfersViewModel.deviceFractions,
-                        onRevealInFinder: { device in
-                            FinderRevealer.revealTransferDestination(for: device.displayName)
+            VStack(spacing: 0) {
+                if #available(macOS 15.4, *) {
+                    FSExtensionBanner(
+                        status: container.extensionMonitor.status,
+                        onOpenSettings: { SystemSettingsLauncher.openLoginItemsAndExtensions() },
+                        onRefresh: {
+                            Task { await container.extensionMonitor.refresh() }
                         }
                     )
-                    appearanceMenu
-                        .padding(Spacing.md)
                 }
-                Divider().overlay(theme.colors.line)
-                detail
+                HStack(spacing: 0) {
+                    ZStack(alignment: .bottomLeading) {
+                        DeviceListView(
+                            viewModel: container.deviceListViewModel,
+                            deviceFractions: container.transfersViewModel.deviceFractions,
+                            onRevealInFinder: { device in
+                                FinderRevealer.revealTransferDestination(for: device.displayName)
+                            }
+                        )
+                        appearanceMenu
+                            .padding(Spacing.md)
+                    }
+                    Divider().overlay(theme.colors.line)
+                    detail
+                }
             }
         }
         .frame(minWidth: 920, minHeight: 600)
@@ -67,6 +78,10 @@ struct ContentView: View {
                 }
             }
         }
+        .motion(.smooth, value: {
+            if #available(macOS 15.4, *) { return container.extensionMonitor.status }
+            return FSExtensionStatus.unknown
+        }())
     }
 
     private var appearanceMenu: some View {

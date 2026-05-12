@@ -37,6 +37,7 @@ final class AppContainer {
     let transferToastPresenter = TransferToastPresenter()
 
     let xpcRegistry = XPCConnectionRegistry()
+    let extensionMonitor = FSExtensionMonitor()
 
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -99,6 +100,7 @@ final class AppContainer {
     func start() async {
         try? await registry.start()
         xpcRegistry.start(registry: registry)
+        extensionMonitor.start()
         await observeDevicesForMounting()
     }
 
