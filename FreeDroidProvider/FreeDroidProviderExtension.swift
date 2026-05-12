@@ -41,8 +41,47 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         request: NSFileProviderRequest,
         completionHandler: @escaping (URL?, NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
-        completionHandler(nil, nil, NSFileProviderError(.serverUnreachable) as NSError)
-        return Progress()
+        nonisolated(unsafe) let handler = completionHandler
+        nonisolated(unsafe) let progress = Progress(totalUnitCount: -1)
+        Task {
+            do {
+                guard let path = ItemIdentifier.decode(itemIdentifier.rawValue) else {
+                    throw NSFileProviderError(.noSuchItem)
+                }
+                let entry = try await bridge.send(
+                    .stat(deviceID: deviceID, path: path),
+                    expecting: RemoteEntry.self
+                )
+                let total = entry.sizeBytes ?? 0
+                progress.totalUnitCount = total
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString)
+                    .appendingPathExtension((entry.name as NSString).pathExtension)
+                FileManager.default.createFile(atPath: tempURL.path, contents: nil)
+                let handle = try FileHandle(forWritingTo: tempURL)
+                defer { try? handle.close() }
+                let chunkSize = 1 << 20
+                var offset: Int64 = 0
+                while offset < total {
+                    let length = Int(min(Int64(chunkSize), total - offset))
+                    let chunk = try await bridge.send(
+                        .read(deviceID: deviceID, path: path, offset: offset, length: length),
+                        expecting: Data.self
+                    )
+                    try handle.write(contentsOf: chunk)
+                    offset += Int64(chunk.count)
+                    progress.completedUnitCount = offset
+                    if chunk.count == 0 { break }
+                }
+                let item = ProviderItem(entry: entry, parent: path.parent ?? .root)
+                handler(tempURL, item, nil)
+            } catch let error as TransportError {
+                handler(nil, nil, ProviderError.map(error))
+            } catch {
+                handler(nil, nil, error)
+            }
+        }
+        return progress
     }
 
     func enumerator(
