@@ -53,52 +53,11 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         nonisolated(unsafe) let handler = completionHandler
         nonisolated(unsafe) let progress = Progress(totalUnitCount: -1)
         Task {
-            await self.fetchGate.acquire()
-            defer { Task { await self.fetchGate.release() } }
             do {
-                guard let path = ItemIdentifier.decode(itemIdentifier.rawValue) else {
-                    throw NSFileProviderError(.noSuchItem)
+                let result = try await self.fetchGate.withSlot {
+                    try await self.materialize(itemIdentifier: itemIdentifier, progress: progress)
                 }
-                let entry: RemoteEntry
-                if let cached = await self.enumerationCache.lookup(path) {
-                    entry = cached
-                } else {
-                    let fresh = try await transport.stat(path)
-                    await self.enumerationCache.record([fresh])
-                    entry = fresh
-                }
-                progress.totalUnitCount = entry.sizeBytes ?? -1
-                let ext = (entry.name as NSString).pathExtension
-                let key = ContentKey(
-                    deviceID: self.deviceID.raw,
-                    path: path.raw,
-                    mtimeUnix: Int64(entry.modifiedAt?.timeIntervalSince1970 ?? 0),
-                    size: entry.sizeBytes ?? 0
-                )
-                if let hit = await self.cache.lookup(key) {
-                    let cachedURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
-                    try? FileManager.default.linkItem(at: hit, to: cachedURL)
-                    if !FileManager.default.fileExists(atPath: cachedURL.path) {
-                        try FileManager.default.copyItem(at: hit, to: cachedURL)
-                    }
-                    progress.completedUnitCount = entry.sizeBytes ?? 0
-                    handler(cachedURL, ProviderItem(entry: entry, parent: path.parent ?? .root), nil)
-                    return
-                }
-                let tempURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
-                try await transport.fetch(path, into: tempURL)
-                let finalSize = (try? FileManager.default.attributesOfItem(atPath: tempURL.path)[.size] as? NSNumber)?.int64Value ?? 0
-                if progress.totalUnitCount < 0 { progress.totalUnitCount = finalSize }
-                progress.completedUnitCount = finalSize
-                let finalKey = ContentKey(
-                    deviceID: self.deviceID.raw,
-                    path: path.raw,
-                    mtimeUnix: Int64(entry.modifiedAt?.timeIntervalSince1970 ?? 0),
-                    size: entry.sizeBytes ?? finalSize
-                )
-                _ = try? await self.cache.store(tempURL, key: finalKey, filename: entry.name)
-                let item = ProviderItem(entry: entry, parent: path.parent ?? .root)
-                handler(tempURL, item, nil)
+                handler(result.url, result.item, nil)
             } catch let error as TransportError {
                 handler(nil, nil, ProviderError.map(error))
             } catch {
@@ -106,6 +65,67 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
             }
         }
         return progress
+    }
+
+    private struct MaterializeResult {
+        let url: URL
+        let item: ProviderItem
+    }
+
+    private func materialize(
+        itemIdentifier: NSFileProviderItemIdentifier,
+        progress: Progress
+    ) async throws -> MaterializeResult {
+        guard let path = ItemIdentifier.decode(itemIdentifier.rawValue) else {
+            throw NSFileProviderError(.noSuchItem)
+        }
+        let entry = try await resolveEntry(at: path)
+        progress.totalUnitCount = entry.sizeBytes ?? -1
+        let parent = path.parent ?? .root
+        let ext = (entry.name as NSString).pathExtension
+        let key = ContentKey(
+            deviceID: deviceID.raw,
+            path: path.raw,
+            mtimeUnix: Int64(entry.modifiedAt?.timeIntervalSince1970 ?? 0),
+            size: entry.sizeBytes ?? 0
+        )
+        if let hit = await cache.lookup(key) {
+            let cachedURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
+            try Self.materializeCached(from: hit, to: cachedURL)
+            progress.completedUnitCount = entry.sizeBytes ?? 0
+            return MaterializeResult(url: cachedURL, item: ProviderItem(entry: entry, parent: parent))
+        }
+        let tempURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
+        try await transport.fetch(path, into: tempURL)
+        let finalSize = Self.fileSize(at: tempURL)
+        if progress.totalUnitCount < 0 { progress.totalUnitCount = finalSize }
+        progress.completedUnitCount = finalSize
+        let finalKey = ContentKey(
+            deviceID: deviceID.raw,
+            path: path.raw,
+            mtimeUnix: Int64(entry.modifiedAt?.timeIntervalSince1970 ?? 0),
+            size: entry.sizeBytes ?? finalSize
+        )
+        _ = try? await cache.store(tempURL, key: finalKey, filename: entry.name)
+        return MaterializeResult(url: tempURL, item: ProviderItem(entry: entry, parent: parent))
+    }
+
+    private func resolveEntry(at path: RemotePath) async throws -> RemoteEntry {
+        if let cached = await enumerationCache.lookup(path) { return cached }
+        let fresh = try await transport.stat(path)
+        await enumerationCache.record([fresh])
+        return fresh
+    }
+
+    private static func materializeCached(from hit: URL, to destination: URL) throws {
+        try? FileManager.default.linkItem(at: hit, to: destination)
+        if !FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.copyItem(at: hit, to: destination)
+        }
+    }
+
+    private static func fileSize(at url: URL) -> Int64 {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     func enumerator(

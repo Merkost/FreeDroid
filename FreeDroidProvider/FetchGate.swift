@@ -23,14 +23,26 @@ actor FetchGate {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             waiters.append(continuation)
         }
-        inFlight += 1
     }
 
     func release() {
-        inFlight -= 1
         if let waiter = waiters.first {
             waiters.removeFirst()
             waiter.resume()
+            return
+        }
+        inFlight = max(0, inFlight - 1)
+    }
+
+    func withSlot<T: Sendable>(_ body: () async throws -> T) async throws -> T {
+        await acquire()
+        do {
+            let result = try await body()
+            release()
+            return result
+        } catch {
+            release()
+            throw error
         }
     }
 }

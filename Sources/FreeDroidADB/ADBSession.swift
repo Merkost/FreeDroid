@@ -209,7 +209,11 @@ public actor ADBSession: Transport {
         if Self.wireEnabled {
             do {
                 return try await wire()
-            } catch let error as ADBWireError {
+            } catch let error as TransportError {
+                throw error
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
                 Self.logFallback(op: op, path: path, error: error)
             }
         }
