@@ -36,8 +36,7 @@ struct FreeDroidApp: App {
             MenuBarStatusView()
                 .environment(container)
         } label: {
-            let count = container.deviceListViewModel.devices.filter { $0.connectionState == .ready }.count
-            Image(systemName: count > 0 ? "iphone.gen3" : "iphone.gen3.slash")
+            Image(systemName: menuBarIcon)
         }
         .menuBarExtraStyle(.menu)
 
@@ -45,5 +44,13 @@ struct FreeDroidApp: App {
             SettingsView()
                 .environment(container)
         }
+    }
+
+    private var menuBarIcon: String {
+        if container.transfersViewModel.hasActiveTransfer {
+            return "arrow.up.arrow.down.circle.fill"
+        }
+        let count = container.deviceListViewModel.devices.filter { $0.connectionState == .ready }.count
+        return count > 0 ? "iphone.gen3" : "iphone.gen3.slash"
     }
 }

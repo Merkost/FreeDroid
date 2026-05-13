@@ -9,6 +9,13 @@ public final class TransfersViewModel {
     public private(set) var jobToDevice: [UUID: DeviceID] = [:]
     public private(set) var deviceFractions: [DeviceID: Double] = [:]
 
+    public var hasActiveTransfer: Bool {
+        states.contains { state in
+            if case .running = state { return true }
+            return false
+        }
+    }
+
     private let repository: any TransferRepository
     private let cancelUseCase: CancelTransferUseCase
     private let deriver = PerDeviceProgressDeriver()
