@@ -32,6 +32,15 @@ struct FreeDroidApp: App {
             }
         }
 
+        MenuBarExtra {
+            MenuBarStatusView()
+                .environment(container)
+        } label: {
+            let count = container.deviceListViewModel.devices.filter { $0.connectionState == .ready }.count
+            Image(systemName: count > 0 ? "iphone.gen3" : "iphone.gen3.slash")
+        }
+        .menuBarExtraStyle(.menu)
+
         Settings {
             SettingsView()
                 .environment(container)
