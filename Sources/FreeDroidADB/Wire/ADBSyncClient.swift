@@ -20,7 +20,7 @@ public struct SyncEntry: Sendable {
     }
 }
 
-public typealias TransferProgressSink = @Sendable (_ bytesTransferred: Int64, _ totalBytes: Int64?) -> Void
+public typealias WireProgressCallback = @Sendable (_ bytesTransferred: Int64, _ totalBytes: Int64?) -> Void
 
 public actor ADBSyncClient {
     private let connection: ADBWireConnection
@@ -234,7 +234,7 @@ public actor ADBSyncClient {
         }
     }
 
-    public func recv(remotePath: String, to localURL: URL, progress: TransferProgressSink?) async throws -> Int64 {
+    public func recv(remotePath: String, to localURL: URL, progress: WireProgressCallback?) async throws -> Int64 {
         let pathData = Data(remotePath.utf8)
         var req = Data()
         req.append(contentsOf: "RECV".utf8)
@@ -276,7 +276,7 @@ public actor ADBSyncClient {
         from localURL: URL,
         remotePath: String,
         mode: UInt32 = 0o100644,
-        progress: TransferProgressSink? = nil
+        progress: WireProgressCallback? = nil
     ) async throws -> Int64 {
         let remoteArg = "\(remotePath),\(mode)"
         let argData = Data(remoteArg.utf8)

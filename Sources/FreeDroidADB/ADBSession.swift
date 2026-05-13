@@ -177,7 +177,7 @@ public actor ADBSession: Transport {
             timeout: .seconds(600)
         )
         let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
-        progress?(size, size)
+        progress?.report(bytesTransferred: size, totalBytes: size)
         return size
     }
 
@@ -189,7 +189,7 @@ public actor ADBSession: Transport {
             .push(serial: serial, local: source.path, remote: path.raw, compressed: compressed),
             timeout: .seconds(600)
         )
-        progress?(size, size)
+        progress?.report(bytesTransferred: size, totalBytes: size)
         return size
     }
 
@@ -314,14 +314,23 @@ public actor ADBSession: Transport {
         let parent = destination.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: destination)
+        let callback = Self.wireCallback(from: progress)
         return try await syncPool.withConnection { syncClient in
-            try await syncClient.recv(remotePath: path.raw, to: destination, progress: progress)
+            try await syncClient.recv(remotePath: path.raw, to: destination, progress: callback)
         }
     }
 
     private func wireUpload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
-        try await syncPool.withConnection { syncClient in
-            try await syncClient.send(from: source, remotePath: path.raw, progress: progress)
+        let callback = Self.wireCallback(from: progress)
+        return try await syncPool.withConnection { syncClient in
+            try await syncClient.send(from: source, remotePath: path.raw, progress: callback)
+        }
+    }
+
+    private static func wireCallback(from sink: TransferProgressSink?) -> WireProgressCallback? {
+        guard let sink else { return nil }
+        return { transferred, total in
+            sink.report(bytesTransferred: transferred, totalBytes: total)
         }
     }
 
