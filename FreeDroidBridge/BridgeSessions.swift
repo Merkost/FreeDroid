@@ -9,6 +9,7 @@ actor BridgeSessions {
 
     init() throws {
         self.server = try ADBServer.liveSync()
+        ADBFileSync.purgeStaleTempFiles()
     }
 
     func session(for deviceID: String) async throws -> ADBSession {

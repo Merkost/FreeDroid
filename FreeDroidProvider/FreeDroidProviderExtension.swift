@@ -36,12 +36,29 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 let item = try await resolveItem(for: identifier)
                 handler(item, nil)
             } catch let error as TransportError {
+                await self.invalidateIfMissing(error: error, identifier: identifier)
                 handler(nil, ProviderError.map(error))
             } catch {
                 handler(nil, error)
             }
         }
         return Progress()
+    }
+
+    private func invalidateIfMissing(error: TransportError, identifier: NSFileProviderItemIdentifier) async {
+        guard case .notFound(let path) = error else { return }
+        await enumerationCache.invalidate(path)
+        if let parent = path.parent {
+            signalEnumerator(forParent: parent)
+        }
+    }
+
+    private func signalEnumerator(forParent parent: RemotePath) {
+        let parentIdentifier: NSFileProviderItemIdentifier = parent.isRoot
+            ? .rootContainer
+            : NSFileProviderItemIdentifier(ItemIdentifier.encode(parent))
+        guard let manager = NSFileProviderManager(for: domain) else { return }
+        manager.signalEnumerator(for: parentIdentifier) { _ in }
     }
 
     func fetchContents(
@@ -59,6 +76,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 }
                 handler(result.url, result.item, nil)
             } catch let error as TransportError {
+                await self.invalidateIfMissing(error: error, identifier: itemIdentifier)
                 handler(nil, nil, ProviderError.map(error))
             } catch {
                 handler(nil, nil, error)
