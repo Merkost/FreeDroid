@@ -131,6 +131,42 @@ public actor ADBSession: Transport {
     }
 
     public func fetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
+        try await withWireFallback(op: "fetch", path: path.raw) {
+            try await self.wireFetch(path, into: destination, progress: progress)
+        } legacy: {
+            try await self.legacyFetch(path, into: destination, progress: progress)
+        }
+    }
+
+    public func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
+        guard FileManager.default.fileExists(atPath: source.path) else {
+            throw TransportError.notFound(RemotePath(raw: source.path))
+        }
+        let bytes = try await withWireFallback(op: "upload", path: path.raw) {
+            try await self.wireUpload(from: source, to: path, progress: progress)
+        } legacy: {
+            try await self.legacyUpload(from: source, to: path, progress: progress)
+        }
+        await rescanMediaStore(path: path)
+        return bytes
+    }
+
+    private func wireFetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
+        let parent = destination.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: destination)
+        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
+        defer { syncClient.close() }
+        return try await syncClient.recv(remotePath: path.raw, to: destination, progress: progress)
+    }
+
+    private func wireUpload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
+        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
+        defer { syncClient.close() }
+        return try await syncClient.send(from: source, remotePath: path.raw, progress: progress)
+    }
+
+    private func legacyFetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
         let runner = await server.runner(for: serial)
         let parent = destination.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
@@ -145,10 +181,7 @@ public actor ADBSession: Transport {
         return size
     }
 
-    public func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
-        guard FileManager.default.fileExists(atPath: source.path) else {
-            throw TransportError.notFound(RemotePath(raw: source.path))
-        }
+    private func legacyUpload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
         let runner = await server.runner(for: serial)
         let size = (try? FileManager.default.attributesOfItem(atPath: source.path)[.size] as? NSNumber)?.int64Value ?? 0
         let compressed = await zstdEnabled()
@@ -156,7 +189,6 @@ public actor ADBSession: Transport {
             .push(serial: serial, local: source.path, remote: path.raw, compressed: compressed),
             timeout: .seconds(600)
         )
-        await rescanMediaStore(path: path)
         progress?(size, size)
         return size
     }

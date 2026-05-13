@@ -272,7 +272,12 @@ public actor ADBSyncClient {
         }
     }
 
-    public func send(from localURL: URL, remotePath: String, mode: UInt32 = 0o100644) async throws -> Int64 {
+    public func send(
+        from localURL: URL,
+        remotePath: String,
+        mode: UInt32 = 0o100644,
+        progress: TransferProgressSink? = nil
+    ) async throws -> Int64 {
         let remoteArg = "\(remotePath),\(mode)"
         let argData = Data(remoteArg.utf8)
         var req = Data()
@@ -283,6 +288,7 @@ public actor ADBSyncClient {
 
         let handle = try FileHandle(forReadingFrom: localURL)
         defer { try? handle.close() }
+        let totalSize = (try? FileManager.default.attributesOfItem(atPath: localURL.path)[.size] as? NSNumber)?.int64Value
 
         var total: Int64 = 0
         let chunkSize = 64 * 1024
@@ -297,6 +303,7 @@ public actor ADBSyncClient {
             packet.append(chunk)
             try await connection.sendRaw(packet)
             total += Int64(chunk.count)
+            progress?(total, totalSize)
         }
 
         let mtime = UInt32(Date().timeIntervalSince1970)
