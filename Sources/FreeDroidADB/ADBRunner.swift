@@ -36,117 +36,95 @@ public actor LiveADBRunner: ADBRunner {
     }
 
     public func run(_ command: ADBCommand, timeout: Duration = .seconds(30)) async throws -> ADBProcessOutput {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = binary
-            process.arguments = command.arguments
-            process.environment = serverEnvironment()
-
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
-
-            let resolver = ContinuationResolver(continuation: continuation)
-            let buffer = StreamingBuffer()
-
-            stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
-                let chunk = handle.availableData
-                if chunk.isEmpty { return }
-                buffer.append(chunk)
-            }
-
-            let timeoutTask = Task {
-                try? await Task.sleep(for: timeout)
-                if process.isRunning {
-                    process.terminate()
-                    resolver.fail(ADBRunnerError.timeout)
-                }
-            }
-
-            process.terminationHandler = { proc in
-                timeoutTask.cancel()
-                stdoutPipe.fileHandleForReading.readabilityHandler = nil
-                if let tail = try? stdoutPipe.fileHandleForReading.readToEnd() {
-                    buffer.append(tail)
-                }
-                let errData = (try? stderrPipe.fileHandleForReading.readToEnd()) ?? Data()
-                let stdout = String(data: buffer.snapshot(), encoding: .utf8) ?? ""
-                let stderr = String(data: errData, encoding: .utf8) ?? ""
-                let output = ADBProcessOutput(exitCode: proc.terminationStatus, stdout: stdout, stderr: stderr)
-                if proc.terminationStatus != 0 {
-                    resolver.fail(ADBRunnerError.nonZeroExit(code: proc.terminationStatus, stderr: stderr))
-                } else {
-                    resolver.succeed(output)
-                }
-            }
-
-            do {
-                try process.run()
-            } catch {
-                timeoutTask.cancel()
-                resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))
-            }
-        }
+        try await runProcess(command: command, stdin: nil, timeout: timeout)
     }
 
     public func runWithStdin(_ command: ADBCommand, stdin stdinPayload: String, timeout: Duration = .seconds(30)) async throws -> ADBProcessOutput {
-        try await withCheckedThrowingContinuation { continuation in
-            let process = Process()
-            process.executableURL = binary
-            process.arguments = command.arguments
-            process.environment = serverEnvironment()
+        try await runProcess(command: command, stdin: stdinPayload, timeout: timeout)
+    }
 
-            let stdinPipe = Pipe()
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-            process.standardInput = stdinPipe
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
+    private func runProcess(command: ADBCommand, stdin stdinPayload: String?, timeout: Duration) async throws -> ADBProcessOutput {
+        let processBox = ProcessBox()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let process = Process()
+                process.executableURL = binary
+                process.arguments = command.arguments
+                process.environment = serverEnvironment()
 
-            let resolver = ContinuationResolver(continuation: continuation)
-            let buffer = StreamingBuffer()
+                let stdinPipe = stdinPayload != nil ? Pipe() : nil
+                let stdoutPipe = Pipe()
+                let stderrPipe = Pipe()
+                if let stdinPipe { process.standardInput = stdinPipe }
+                process.standardOutput = stdoutPipe
+                process.standardError = stderrPipe
 
-            stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
-                let chunk = handle.availableData
-                if chunk.isEmpty { return }
-                buffer.append(chunk)
-            }
+                let resolver = ContinuationResolver(continuation: continuation)
+                let buffer = StreamingBuffer()
 
-            let timeoutTask = Task {
-                try? await Task.sleep(for: timeout)
-                if process.isRunning {
-                    process.terminate()
-                    resolver.fail(ADBRunnerError.timeout)
+                stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
+                    let chunk = handle.availableData
+                    if chunk.isEmpty { return }
+                    buffer.append(chunk)
+                }
+
+                let timeoutTask = Task {
+                    try? await Task.sleep(for: timeout)
+                    if process.isRunning {
+                        process.terminate()
+                        resolver.fail(ADBRunnerError.timeout)
+                    }
+                }
+
+                process.terminationHandler = { proc in
+                    timeoutTask.cancel()
+                    stdoutPipe.fileHandleForReading.readabilityHandler = nil
+                    if let tail = try? stdoutPipe.fileHandleForReading.readToEnd() {
+                        buffer.append(tail)
+                    }
+                    let errData = (try? stderrPipe.fileHandleForReading.readToEnd()) ?? Data()
+                    let stdout = String(data: buffer.snapshot(), encoding: .utf8) ?? ""
+                    let stderr = String(data: errData, encoding: .utf8) ?? ""
+                    let output = ADBProcessOutput(exitCode: proc.terminationStatus, stdout: stdout, stderr: stderr)
+                    if proc.terminationStatus != 0 {
+                        resolver.fail(ADBRunnerError.nonZeroExit(code: proc.terminationStatus, stderr: stderr))
+                    } else {
+                        resolver.succeed(output)
+                    }
+                }
+
+                processBox.set(process)
+                do {
+                    try process.run()
+                    if let stdinPayload, let stdinPipe,
+                       let data = (stdinPayload + "\n").data(using: .utf8) {
+                        stdinPipe.fileHandleForWriting.write(data)
+                        try? stdinPipe.fileHandleForWriting.close()
+                    }
+                } catch {
+                    timeoutTask.cancel()
+                    resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))
                 }
             }
+        } onCancel: {
+            processBox.terminate()
+        }
+    }
 
-            process.terminationHandler = { proc in
-                timeoutTask.cancel()
-                stdoutPipe.fileHandleForReading.readabilityHandler = nil
-                if let tail = try? stdoutPipe.fileHandleForReading.readToEnd() {
-                    buffer.append(tail)
-                }
-                let errData = (try? stderrPipe.fileHandleForReading.readToEnd()) ?? Data()
-                let stdout = String(data: buffer.snapshot(), encoding: .utf8) ?? ""
-                let stderr = String(data: errData, encoding: .utf8) ?? ""
-                let output = ADBProcessOutput(exitCode: proc.terminationStatus, stdout: stdout, stderr: stderr)
-                if proc.terminationStatus != 0 {
-                    resolver.fail(ADBRunnerError.nonZeroExit(code: proc.terminationStatus, stderr: stderr))
-                } else {
-                    resolver.succeed(output)
-                }
-            }
+    private final class ProcessBox: @unchecked Sendable {
+        private struct Holder: @unchecked Sendable {
+            var process: Process?
+        }
+        private let state = OSAllocatedUnfairLock<Holder>(initialState: Holder())
 
-            do {
-                try process.run()
-                if let data = (stdinPayload + "\n").data(using: .utf8) {
-                    stdinPipe.fileHandleForWriting.write(data)
-                }
-                try? stdinPipe.fileHandleForWriting.close()
-            } catch {
-                timeoutTask.cancel()
-                resolver.fail(ADBRunnerError.spawnFailed(message: error.localizedDescription))
+        func set(_ process: Process) {
+            state.withLock { $0.process = process }
+        }
+
+        func terminate() {
+            state.withLock { holder in
+                guard let p = holder.process, p.isRunning else { return }
+                p.terminate()
             }
         }
     }
