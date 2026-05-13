@@ -1,5 +1,6 @@
 import Foundation
-import AppKit
+import ImageIO
+import UniformTypeIdentifiers
 import FreeDroidDomain
 
 public struct MediaRepositoryImpl: MediaRepository {
@@ -76,22 +77,34 @@ public struct MediaRepositoryImpl: MediaRepository {
     }
 
     private func downscale(_ data: Data, to maxPixels: Int) throws -> Data {
-        guard let source = NSImage(data: data) else {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             throw TransportError.ioFailure(message: "cannot decode image")
         }
-        let aspect = source.size.height == 0 ? 1.0 : source.size.width / source.size.height
-        let targetSize: NSSize = source.size.width > source.size.height
-            ? NSSize(width: maxPixels, height: Int(Double(maxPixels) / max(aspect, 0.0001)))
-            : NSSize(width: Int(Double(maxPixels) * aspect), height: maxPixels)
-        let resized = NSImage(size: targetSize, flipped: false) { rect in
-            source.draw(in: rect)
-            return true
+        let thumbOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixels
+        ]
+        guard let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary) else {
+            throw TransportError.ioFailure(message: "cannot create thumbnail")
         }
-        guard let tiff = resized.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.78]) else {
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw TransportError.ioFailure(message: "cannot create thumbnail destination")
+        }
+        let encodeOptions: [CFString: Any] = [
+            kCGImageDestinationLossyCompressionQuality: 0.78
+        ]
+        CGImageDestinationAddImage(destination, thumb, encodeOptions as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else {
             throw TransportError.ioFailure(message: "cannot encode thumbnail")
         }
-        return jpeg
+        return output as Data
     }
 }
