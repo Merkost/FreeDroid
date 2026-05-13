@@ -156,7 +156,7 @@ public actor DeviceRegistry {
                 pinned: pinned
             ) ?? .adb
             guard kind == .adb else { continue }
-            let session = ADBSession(deviceID: deviceID, serial: identifier, server: adbServer)
+            let session = reuseOrCreateADBSession(deviceID: deviceID, serial: identifier)
             let deviceInfo: DeviceInfo
             do {
                 deviceInfo = try await session.info
@@ -198,6 +198,20 @@ public actor DeviceRegistry {
         adbHintedModels = emittedModels
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
+    }
+
+    private func reuseOrCreateADBSession(deviceID: DeviceID, serial: String) -> ADBSession {
+        if let existing = records[deviceID]?.transport as? ADBSession {
+            return existing
+        }
+        return ADBSession(deviceID: deviceID, serial: serial, server: adbServer)
+    }
+
+    private func reuseOrCreateMTPSession(deviceID: DeviceID, raw: MTPRawDevice) -> MTPSession {
+        if let existing = records[deviceID]?.transport as? MTPSession {
+            return existing
+        }
+        return MTPSession(deviceID: deviceID, raw: raw)
     }
 
     private func nameOverlapsAnyADBHint(_ candidate: String) -> Bool {
@@ -260,7 +274,7 @@ public actor DeviceRegistry {
                 skipped += 1
                 continue
             }
-            let session = MTPSession(deviceID: deviceID, raw: rawDevice)
+            let session = reuseOrCreateMTPSession(deviceID: deviceID, raw: rawDevice)
             guard let deviceInfo = try? await session.info else { continue }
             let deviceRecord = Device(
                 id: deviceID,
