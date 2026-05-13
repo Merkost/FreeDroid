@@ -77,7 +77,7 @@ public struct DeviceCardView: View {
                     .foregroundStyle(theme.colors.text2)
             }
             if let fraction = viewModel.storageFraction {
-                StorageBar(fraction: fraction, tint: color)
+                StorageBar(fraction: fraction, tint: storageTint(fraction: fraction, baseTint: color))
             }
             HStack(spacing: Spacing.xs + 2) {
                 if let badge = viewModel.finderBadgeText {
@@ -138,5 +138,11 @@ public struct DeviceCardView: View {
         case .off: theme.colors.text2
         case .custom(let customColor): customColor
         }
+    }
+
+    private func storageTint(fraction: Double, baseTint: Color) -> Color {
+        if fraction >= 0.95 { return theme.colors.danger }
+        if fraction >= 0.85 { return theme.colors.warning }
+        return baseTint
     }
 }
