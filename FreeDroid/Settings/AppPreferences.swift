@@ -40,7 +40,7 @@ public final class AppPreferences {
 
     public var parallelTransfers: ParallelTransfers {
         didSet {
-            UserDefaults.standard.set(parallelTransfers.rawValue, forKey: Self.parallelTransfersKey)
+            Self.sharedSuite.set(parallelTransfers.rawValue, forKey: Self.parallelTransfersKey)
         }
     }
 
@@ -60,7 +60,7 @@ public final class AppPreferences {
         let stored = UserDefaults.standard.string(forKey: Self.appearanceKey)
             ?? AppearanceMode.system.rawValue
         self.appearance = AppearanceMode(rawValue: stored) ?? .system
-        let parallelStored = UserDefaults.standard.integer(forKey: Self.parallelTransfersKey)
+        let parallelStored = Self.sharedSuite.integer(forKey: Self.parallelTransfersKey)
         self.parallelTransfers = ParallelTransfers(rawValue: parallelStored) ?? .three
         if !Self.sharedSuite.bool(forKey: Self.wireEnableMigrationKey) {
             Self.sharedSuite.set(true, forKey: Self.wireProtocolKey)

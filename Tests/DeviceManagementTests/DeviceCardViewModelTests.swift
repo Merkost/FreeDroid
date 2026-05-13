@@ -64,7 +64,7 @@ struct DeviceCardViewModelTests {
         let vm = DeviceCardViewModel(
             device: device("Pixel", transport: .adb, connectionState: .chargingOnly)
         )
-        #expect(vm.statusHint == "Switch USB mode to File Transfer")
+        #expect(vm.statusHint == "Set USB to File Transfer, or enable USB Debugging")
     }
 
     @Test func ringStatePendingAuthorizationState() {

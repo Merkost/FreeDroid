@@ -7,7 +7,7 @@ actor EnumerationCache {
         let storedAt: ContinuousClock.Instant
     }
 
-    private let ttl: Duration = .seconds(30)
+    private let ttl: Duration = .seconds(300)
     private let clock = ContinuousClock()
     private var entries: [RemotePath: Entry] = [:]
 

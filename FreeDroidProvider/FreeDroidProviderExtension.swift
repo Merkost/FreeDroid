@@ -86,33 +86,18 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                     return
                 }
                 let tempURL = IPCEndpoint.newTransferURL(filenameExtension: ext)
-                nonisolated(unsafe) let progressURL = tempURL
-                nonisolated(unsafe) let progressRef = progress
-                let pollTask = Task<Void, Never> { [weak self] in
-                    _ = self
-                    while !Task.isCancelled {
-                        try? await Task.sleep(for: .milliseconds(250))
-                        if Task.isCancelled { break }
-                        if let attrs = try? FileManager.default.attributesOfItem(atPath: progressURL.path),
-                           let size = (attrs[.size] as? NSNumber)?.int64Value {
-                            progressRef.completedUnitCount = size
-                        }
-                    }
-                }
-                defer { pollTask.cancel() }
                 try await transport.fetch(path, into: tempURL)
-                let finalEntry = (try? await transport.stat(path)) ?? entry
                 let finalSize = (try? FileManager.default.attributesOfItem(atPath: tempURL.path)[.size] as? NSNumber)?.int64Value ?? 0
                 if progress.totalUnitCount < 0 { progress.totalUnitCount = finalSize }
                 progress.completedUnitCount = finalSize
                 let finalKey = ContentKey(
                     deviceID: self.deviceID.raw,
                     path: path.raw,
-                    mtimeUnix: Int64(finalEntry.modifiedAt?.timeIntervalSince1970 ?? 0),
-                    size: finalEntry.sizeBytes ?? finalSize
+                    mtimeUnix: Int64(entry.modifiedAt?.timeIntervalSince1970 ?? 0),
+                    size: entry.sizeBytes ?? finalSize
                 )
-                _ = try? await self.cache.store(tempURL, key: finalKey, filename: finalEntry.name)
-                let item = ProviderItem(entry: finalEntry, parent: path.parent ?? .root)
+                _ = try? await self.cache.store(tempURL, key: finalKey, filename: entry.name)
+                let item = ProviderItem(entry: entry, parent: path.parent ?? .root)
                 handler(tempURL, item, nil)
             } catch let error as TransportError {
                 handler(nil, nil, ProviderError.map(error))

@@ -17,54 +17,15 @@ public actor TransferQueue {
     }
 
     public static func defaultParallelism() -> Int {
-        let stored = UserDefaults.standard.integer(forKey: "FreeDroid.ParallelTransfersPerDevice")
+        let suite = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
+        let stored = suite.integer(forKey: "FreeDroid.ParallelTransfersPerDevice")
         return stored == 0 ? 3 : max(1, min(stored, 16))
     }
 
     public func enqueue(_ job: TransferJob, engine: TransferEngine) -> AsyncThrowingStream<TransferProgress, Error> {
         AsyncThrowingStream { continuation in
             let workTask = Task {
-                let initialProgress = TransferProgress(
-                    jobID: job.id,
-                    completedBytes: 0,
-                    totalBytes: 0,
-                    currentItem: nil,
-                    bytesPerSecond: 0
-                )
-                jobStates[job.id] = .running(initialProgress)
-                publish()
-                do {
-                    let total = try await self.computeTotal(job: job, engine: engine)
-                    let copied = try await self.runParallelPull(
-                        job: job,
-                        engine: engine,
-                        total: total,
-                        continuation: continuation
-                    )
-                    let finalProgress = TransferProgress(
-                        jobID: job.id,
-                        completedBytes: copied,
-                        totalBytes: total,
-                        currentItem: nil,
-                        bytesPerSecond: 0
-                    )
-                    jobStates[job.id] = .running(finalProgress)
-                    publish()
-                    jobStates[job.id] = .completed
-                    publish()
-                    continuation.finish()
-                } catch {
-                    if let transportError = error as? TransportError {
-                        jobStates[job.id] = .failed(transportError)
-                    } else if error is CancellationError {
-                        jobStates[job.id] = .failed(.cancelled)
-                    } else {
-                        jobStates[job.id] = .failed(.ioFailure(message: String(describing: error)))
-                    }
-                    publish()
-                    continuation.finish(throwing: error)
-                }
-                active[job.id] = nil
+                await self.start(job: job, engine: engine, continuation: continuation)
             }
             active[job.id] = ActiveJob(job: job, task: workTask)
             continuation.onTermination = { _ in Task { await self.cancel(job.id) } }
@@ -82,6 +43,37 @@ public actor TransferQueue {
         }
     }
 
+    private func start(
+        job: TransferJob,
+        engine: TransferEngine,
+        continuation: AsyncThrowingStream<TransferProgress, Error>.Continuation
+    ) async {
+        publishRunning(job.id, completed: 0, total: 0, current: nil)
+        do {
+            let total = try await computeTotal(job: job, engine: engine)
+            let copied = try await runParallel(job: job, engine: engine, total: total, continuation: continuation)
+            publishRunning(job.id, completed: copied, total: total, current: nil)
+            jobStates[job.id] = .completed
+            publish()
+            continuation.finish()
+        } catch {
+            jobStates[job.id] = mapFailure(error)
+            publish()
+            continuation.finish(throwing: error)
+        }
+        active[job.id] = nil
+    }
+
+    private func mapFailure(_ error: Error) -> TransferState {
+        if let transportError = error as? TransportError {
+            return .failed(transportError)
+        }
+        if error is CancellationError {
+            return .failed(.cancelled)
+        }
+        return .failed(.ioFailure(message: String(describing: error)))
+    }
+
     private func subscribe(_ continuation: AsyncStream<[TransferState]>.Continuation) {
         stateSubscribers.append(continuation)
         continuation.yield(Array(jobStates.values))
@@ -92,66 +84,94 @@ public actor TransferQueue {
         for subscriber in stateSubscribers { subscriber.yield(snapshot) }
     }
 
-    private func computeTotal(job: TransferJob, engine: TransferEngine) async throws -> Int64 {
-        var total: Int64 = 0
-        for item in job.items {
-            let entry = try await engine.transport.stat(item)
-            total += entry.sizeBytes ?? 0
-        }
-        return total
+    private func publishRunning(_ jobID: UUID, completed: Int64, total: Int64, current: RemotePath?) {
+        let progress = TransferProgress(
+            jobID: jobID,
+            completedBytes: completed,
+            totalBytes: total,
+            currentItem: current,
+            bytesPerSecond: 0
+        )
+        jobStates[jobID] = .running(progress)
+        publish()
     }
 
-    private func runParallelPull(
+    private func computeTotal(job: TransferJob, engine: TransferEngine) async throws -> Int64 {
+        switch job.direction {
+        case .toMac:
+            var total: Int64 = 0
+            for item in job.items {
+                let entry = try await engine.transport.stat(item)
+                total += entry.sizeBytes ?? 0
+            }
+            return total
+        case .toDevice:
+            var total: Int64 = 0
+            for item in job.items {
+                let local = job.destination.appendingPathComponent(item.name)
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: local.path),
+                   let size = (attrs[.size] as? NSNumber)?.int64Value {
+                    total += size
+                }
+            }
+            return total
+        }
+    }
+
+    private func runParallel(
         job: TransferJob,
         engine: TransferEngine,
         total: Int64,
         continuation: AsyncThrowingStream<TransferProgress, Error>.Continuation
     ) async throws -> Int64 {
+        let worker = makeWorker(for: job, engine: engine)
+        let items = job.items
         let limit = maxParallelPerDevice
-        let jobID = job.id
-        let destination = job.destination
         var copied: Int64 = 0
+
         try await withThrowingTaskGroup(of: (RemotePath, Int64).self) { group in
             var inFlight = 0
             var index = 0
-            let items = job.items
-            while index < items.count && inFlight < limit {
+            func enqueueNext() {
+                guard index < items.count else { return }
                 let item = items[index]
                 index += 1
                 inFlight += 1
                 group.addTask {
-                    let local = destination.appendingPathComponent(item.name)
-                    let bytes = try await engine.pull(item, to: local)
+                    let bytes = try await worker(item)
                     return (item, bytes)
                 }
             }
-            while let result = try await group.next() {
+            while inFlight < limit && index < items.count { enqueueNext() }
+            while let (item, bytes) = try await group.next() {
                 inFlight -= 1
-                let (item, bytes) = result
                 copied += bytes
-                let progress = TransferProgress(
-                    jobID: jobID,
+                publishRunning(job.id, completed: copied, total: total, current: item)
+                continuation.yield(TransferProgress(
+                    jobID: job.id,
                     completedBytes: copied,
                     totalBytes: total,
                     currentItem: item,
                     bytesPerSecond: 0
-                )
-                jobStates[jobID] = .running(progress)
-                publish()
-                continuation.yield(progress)
-                if index < items.count {
-                    try Task.checkCancellation()
-                    let next = items[index]
-                    index += 1
-                    inFlight += 1
-                    group.addTask {
-                        let local = destination.appendingPathComponent(next.name)
-                        let bytes = try await engine.pull(next, to: local)
-                        return (next, bytes)
-                    }
-                }
+                ))
+                try Task.checkCancellation()
+                enqueueNext()
             }
         }
         return copied
+    }
+
+    private func makeWorker(for job: TransferJob, engine: TransferEngine) -> @Sendable (RemotePath) async throws -> Int64 {
+        let destination = job.destination
+        switch job.direction {
+        case .toMac:
+            return { item in
+                try await engine.pull(item, to: destination.appendingPathComponent(item.name))
+            }
+        case .toDevice:
+            return { item in
+                try await engine.push(localURL: destination.appendingPathComponent(item.name), to: item)
+            }
+        }
     }
 }
