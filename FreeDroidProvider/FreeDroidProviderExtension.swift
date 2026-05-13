@@ -68,7 +68,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         completionHandler: @escaping (URL?, NSFileProviderItem?, Error?) -> Void
     ) -> Progress {
         nonisolated(unsafe) let handler = completionHandler
-        nonisolated(unsafe) let progress = Progress(totalUnitCount: -1)
+        let progress = Progress(totalUnitCount: -1)
         Task {
             do {
                 let result = try await self.fetchGate.withSlot {
@@ -85,7 +85,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         return progress
     }
 
-    private struct MaterializeResult {
+    private struct MaterializeResult: @unchecked Sendable {
         let url: URL
         let item: ProviderItem
     }
@@ -170,7 +170,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
     ) -> Progress {
         nonisolated(unsafe) let handler = completionHandler
-        nonisolated(unsafe) let progress = Progress(totalUnitCount: 1)
+        let progress = Progress(totalUnitCount: 1)
         let parentIdentifier = itemTemplate.parentItemIdentifier
         let filename = itemTemplate.filename
         let contentType = itemTemplate.contentType
@@ -220,7 +220,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         completionHandler: @escaping (NSFileProviderItem?, NSFileProviderItemFields, Bool, Error?) -> Void
     ) -> Progress {
         nonisolated(unsafe) let handler = completionHandler
-        nonisolated(unsafe) let progress = Progress(totalUnitCount: 1)
+        let progress = Progress(totalUnitCount: 1)
         let itemIdentifierRaw = item.itemIdentifier.rawValue
         let parentIdentifier = item.parentItemIdentifier
         let filename = item.filename
@@ -269,7 +269,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         completionHandler: @escaping (Error?) -> Void
     ) -> Progress {
         nonisolated(unsafe) let handler = completionHandler
-        nonisolated(unsafe) let progress = Progress(totalUnitCount: 1)
+        let progress = Progress(totalUnitCount: 1)
         let identifierRaw = identifier.rawValue
         Task {
             do {
