@@ -19,6 +19,7 @@ public actor ADBSession: Transport {
     private var cachedZstd: Bool?
     private var cachedDeviceFeatures: Set<String>?
     private var inFlightStats: [String: Task<RemoteEntry, Error>] = [:]
+    private lazy var syncPool = ADBSyncConnectionPool(serial: serial, host: wireHost, port: wirePort)
 
     private static var wireEnabled: Bool {
         let suite = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
@@ -151,21 +152,6 @@ public actor ADBSession: Transport {
         return bytes
     }
 
-    private func wireFetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
-        let parent = destination.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(at: destination)
-        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
-        defer { syncClient.close() }
-        return try await syncClient.recv(remotePath: path.raw, to: destination, progress: progress)
-    }
-
-    private func wireUpload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
-        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
-        defer { syncClient.close() }
-        return try await syncClient.send(from: source, remotePath: path.raw, progress: progress)
-    }
-
     private func legacyFetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
         let runner = await server.runner(for: serial)
         let parent = destination.deletingLastPathComponent()
@@ -197,6 +183,7 @@ public actor ADBSession: Transport {
         cachedInfo = nil
         cachedZstd = nil
         cachedDeviceFeatures = nil
+        await syncPool.drain()
     }
 
     private func withWireFallback<T: Sendable>(
@@ -249,13 +236,11 @@ public actor ADBSession: Transport {
 
     private func wireList(_ path: RemotePath) async throws -> [RemoteEntry] {
         let feats = await deviceFeatures()
-        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
-        defer { syncClient.close() }
-        let entries: [SyncEntry]
-        if feats.contains("ls_v2") {
-            entries = try await syncClient.listV2(remotePath: path.raw)
-        } else {
-            entries = try await syncClient.listV1(remotePath: path.raw)
+        let entries = try await syncPool.withConnection { syncClient -> [SyncEntry] in
+            if feats.contains("ls_v2") {
+                return try await syncClient.listV2(remotePath: path.raw)
+            }
+            return try await syncClient.listV1(remotePath: path.raw)
         }
         return entries.map { entry in
             let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
@@ -272,13 +257,11 @@ public actor ADBSession: Transport {
 
     private func wireStat(_ path: RemotePath) async throws -> RemoteEntry {
         let feats = await deviceFeatures()
-        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
-        defer { syncClient.close() }
-        let entry: SyncEntry
-        if feats.contains("stat_v2") {
-            entry = try await syncClient.statV2(remotePath: path.raw)
-        } else {
-            entry = try await syncClient.statV1(remotePath: path.raw)
+        let entry = try await syncPool.withConnection { syncClient -> SyncEntry in
+            if feats.contains("stat_v2") {
+                return try await syncClient.statV2(remotePath: path.raw)
+            }
+            return try await syncClient.statV1(remotePath: path.raw)
         }
         let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
         return RemoteEntry(
@@ -294,9 +277,9 @@ public actor ADBSession: Transport {
     private func wireRead(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
         let temp = ADBFileSync.tempLocalPath()
         defer { try? FileManager.default.removeItem(at: temp) }
-        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
-        defer { syncClient.close() }
-        _ = try await syncClient.recv(remotePath: path.raw, to: temp, progress: nil)
+        try await syncPool.withConnection { syncClient in
+            _ = try await syncClient.recv(remotePath: path.raw, to: temp, progress: nil)
+        }
         return try Self.sliceData(at: temp, offset: offset, length: length)
     }
 
@@ -304,9 +287,24 @@ public actor ADBSession: Transport {
         let temp = ADBFileSync.tempLocalPath()
         try data.write(to: temp)
         defer { try? FileManager.default.removeItem(at: temp) }
-        let syncClient = try await ADBSyncClient.open(serial: serial, host: wireHost, port: wirePort)
-        defer { syncClient.close() }
-        _ = try await syncClient.send(from: temp, remotePath: path.raw)
+        try await syncPool.withConnection { syncClient in
+            _ = try await syncClient.send(from: temp, remotePath: path.raw)
+        }
+    }
+
+    private func wireFetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
+        let parent = destination.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: destination)
+        return try await syncPool.withConnection { syncClient in
+            try await syncClient.recv(remotePath: path.raw, to: destination, progress: progress)
+        }
+    }
+
+    private func wireUpload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
+        try await syncPool.withConnection { syncClient in
+            try await syncClient.send(from: source, remotePath: path.raw, progress: progress)
+        }
     }
 
     private func legacyList(_ path: RemotePath) async throws -> [RemoteEntry] {

@@ -21,6 +21,18 @@ struct LiveDeviceTests {
         #expect(entry.mtime > 0)
     }
 
+    @Test func poolReusesConnectionAcrossOps() async throws {
+        let serial = try await ensureAttachedSerial()
+        let pool = ADBSyncConnectionPool(serial: serial)
+        let first = try await pool.withConnection { try await $0.statV2(remotePath: "/system/build.prop") }
+        let second = try await pool.withConnection { try await $0.statV2(remotePath: "/system/build.prop") }
+        let third = try await pool.withConnection { try await $0.listV2(remotePath: "/sdcard") }
+        await pool.drain()
+        #expect(first.size > 0)
+        #expect(second.size == first.size)
+        #expect(!third.isEmpty)
+    }
+
     @Test func sendThenRecvRoundtrip() async throws {
         let serial = try await ensureAttachedSerial()
         let payload = Data((0..<1024 * 1024).map { _ in UInt8.random(in: 0...255) })
