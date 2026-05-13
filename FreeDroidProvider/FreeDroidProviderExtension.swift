@@ -191,6 +191,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                     try await transport.write(newPath, data: Data(), offset: 0)
                 }
                 let entry = try await transport.stat(newPath)
+                await self.invalidateAndSignal(parent: parent)
                 progress.completedUnitCount = 1
                 handler(ProviderItem(entry: entry, parent: parent), [], false, nil)
             } catch let error as TransportError {
@@ -200,6 +201,11 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
             }
         }
         return progress
+    }
+
+    private func invalidateAndSignal(parent: RemotePath) async {
+        await enumerationCache.invalidate(parent)
+        signalEnumerator(forParent: parent)
     }
 
     private func resolveParent(_ identifier: NSFileProviderItemIdentifier) throws -> RemotePath {
@@ -250,6 +256,9 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                 }
 
                 let entry = try await transport.stat(currentPath)
+                if let parent = currentPath.parent {
+                    await self.invalidateAndSignal(parent: parent)
+                }
                 progress.completedUnitCount = 1
                 handler(ProviderItem(entry: entry, parent: currentPath.parent ?? .root), [], false, nil)
             } catch let error as TransportError {
@@ -277,6 +286,9 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
                     throw NSFileProviderError(.noSuchItem)
                 }
                 try await transport.remove(path)
+                if let parent = path.parent {
+                    await self.invalidateAndSignal(parent: parent)
+                }
                 progress.completedUnitCount = 1
                 handler(nil)
             } catch let error as TransportError {
