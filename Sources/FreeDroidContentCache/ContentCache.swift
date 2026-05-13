@@ -11,6 +11,46 @@ private struct CacheEntryMeta: Codable {
     let path: String
     let mtimeUnix: Int64
     let keySizeBytes: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case version, keyDescription, fetchedAt, lastAccessedAt
+        case size, deviceID, path, mtimeUnix, keySizeBytes
+    }
+
+    init(
+        version: String,
+        keyDescription: String,
+        fetchedAt: Date,
+        lastAccessedAt: Date,
+        size: Int64,
+        deviceID: String,
+        path: String,
+        mtimeUnix: Int64,
+        keySizeBytes: Int64
+    ) {
+        self.version = version
+        self.keyDescription = keyDescription
+        self.fetchedAt = fetchedAt
+        self.lastAccessedAt = lastAccessedAt
+        self.size = size
+        self.deviceID = deviceID
+        self.path = path
+        self.mtimeUnix = mtimeUnix
+        self.keySizeBytes = keySizeBytes
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(String.self, forKey: .version)
+        keyDescription = try c.decode(String.self, forKey: .keyDescription)
+        fetchedAt = try c.decode(Date.self, forKey: .fetchedAt)
+        lastAccessedAt = (try? c.decode(Date.self, forKey: .lastAccessedAt)) ?? fetchedAt
+        size = try c.decode(Int64.self, forKey: .size)
+        deviceID = try c.decode(String.self, forKey: .deviceID)
+        path = try c.decode(String.self, forKey: .path)
+        mtimeUnix = try c.decode(Int64.self, forKey: .mtimeUnix)
+        keySizeBytes = try c.decode(Int64.self, forKey: .keySizeBytes)
+    }
 }
 
 public actor ContentCache {
