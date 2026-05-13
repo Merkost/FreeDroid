@@ -69,9 +69,24 @@ public actor ADBSession: Transport {
 
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
         if Self.wireEnabled {
-            return try await wireList(path)
+            do {
+                return try await wireList(path)
+            } catch let error as ADBWireError {
+                wireFallbackLogger("list", path: path.raw, error: error)
+                return try await legacyList(path)
+            }
         }
         return try await legacyList(path)
+    }
+
+    private nonisolated func wireFallbackLogger(_ op: String, path: String, error: Error) {
+        let suite = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
+        let key = "freedroid.wireFallbackLogged"
+        let last = suite.double(forKey: key)
+        let now = Date().timeIntervalSince1970
+        if now - last < 30 { return }
+        suite.set(now, forKey: key)
+        Swift.print("[FreeDroid] wire \(op) failed for \(path), falling back to legacy: \(error)")
     }
 
     private func wireList(_ path: RemotePath) async throws -> [RemoteEntry] {
@@ -149,11 +164,23 @@ public actor ADBSession: Transport {
             return try await existing.value
         }
         let task = Task { [self] in
-            try await Self.wireEnabled ? wireStat(path) : legacyStat(path)
+            try await statWithFallback(path)
         }
         inFlightStats[key] = task
         defer { inFlightStats[key] = nil }
         return try await task.value
+    }
+
+    private func statWithFallback(_ path: RemotePath) async throws -> RemoteEntry {
+        if Self.wireEnabled {
+            do {
+                return try await wireStat(path)
+            } catch let error as ADBWireError {
+                wireFallbackLogger("stat", path: path.raw, error: error)
+                return try await legacyStat(path)
+            }
+        }
+        return try await legacyStat(path)
     }
 
     private func wireStat(_ path: RemotePath) async throws -> RemoteEntry {
@@ -261,7 +288,12 @@ public actor ADBSession: Transport {
 
     public func read(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data {
         if Self.wireEnabled {
-            return try await wireRead(path, offset: offset, length: length)
+            do {
+                return try await wireRead(path, offset: offset, length: length)
+            } catch let error as ADBWireError {
+                wireFallbackLogger("read", path: path.raw, error: error)
+                return try await legacyRead(path, offset: offset, length: length)
+            }
         }
         return try await legacyRead(path, offset: offset, length: length)
     }
@@ -300,10 +332,14 @@ public actor ADBSession: Transport {
             throw TransportError.unsupported(reason: "ADB push does not support offset writes")
         }
         if Self.wireEnabled {
-            try await wireWrite(path, data: data)
-        } else {
-            try await legacyWrite(path, data: data)
+            do {
+                try await wireWrite(path, data: data)
+                return
+            } catch let error as ADBWireError {
+                wireFallbackLogger("write", path: path.raw, error: error)
+            }
         }
+        try await legacyWrite(path, data: data)
     }
 
     private func wireWrite(_ path: RemotePath, data: Data) async throws {
@@ -329,44 +365,56 @@ public actor ADBSession: Transport {
 
     public func mkdir(_ path: RemotePath) async throws {
         if Self.wireEnabled {
-            let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
-            let result = try await shell.run(serial: serial, command: "mkdir -p \(escape(path.raw))")
-            guard result.exitCode == 0 else {
-                throw TransportError.ioFailure(message: result.stderr)
+            do {
+                let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
+                let result = try await shell.run(serial: serial, command: "mkdir -p \(escape(path.raw))")
+                guard result.exitCode == 0 else {
+                    throw TransportError.ioFailure(message: result.stderr)
+                }
+                return
+            } catch let error as ADBWireError {
+                wireFallbackLogger("mkdir", path: path.raw, error: error)
             }
-        } else {
-            let runner = await server.runner(for: serial)
-            _ = try await runner.run(.shell(serial: serial, script: "mkdir -p \(escape(path.raw))"), timeout: .seconds(5))
         }
+        let runner = await server.runner(for: serial)
+        _ = try await runner.run(.shell(serial: serial, script: "mkdir -p \(escape(path.raw))"), timeout: .seconds(5))
     }
 
     public func remove(_ path: RemotePath) async throws {
         if Self.wireEnabled {
-            let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
-            let result = try await shell.run(serial: serial, command: "rm -rf \(escape(path.raw))")
-            guard result.exitCode == 0 else {
-                throw TransportError.ioFailure(message: result.stderr)
+            do {
+                let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
+                let result = try await shell.run(serial: serial, command: "rm -rf \(escape(path.raw))")
+                guard result.exitCode == 0 else {
+                    throw TransportError.ioFailure(message: result.stderr)
+                }
+                return
+            } catch let error as ADBWireError {
+                wireFallbackLogger("remove", path: path.raw, error: error)
             }
-        } else {
-            let runner = await server.runner(for: serial)
-            _ = try await runner.run(.shell(serial: serial, script: "rm -rf \(escape(path.raw))"), timeout: .seconds(30))
         }
+        let runner = await server.runner(for: serial)
+        _ = try await runner.run(.shell(serial: serial, script: "rm -rf \(escape(path.raw))"), timeout: .seconds(30))
     }
 
     public func rename(_ from: RemotePath, to destination: RemotePath) async throws {
         if Self.wireEnabled {
-            let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
-            let result = try await shell.run(serial: serial, command: "mv \(escape(from.raw)) \(escape(destination.raw))")
-            guard result.exitCode == 0 else {
-                throw TransportError.ioFailure(message: result.stderr)
+            do {
+                let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
+                let result = try await shell.run(serial: serial, command: "mv \(escape(from.raw)) \(escape(destination.raw))")
+                guard result.exitCode == 0 else {
+                    throw TransportError.ioFailure(message: result.stderr)
+                }
+                return
+            } catch let error as ADBWireError {
+                wireFallbackLogger("rename", path: from.raw, error: error)
             }
-        } else {
-            let runner = await server.runner(for: serial)
-            _ = try await runner.run(
-                .shell(serial: serial, script: "mv \(escape(from.raw)) \(escape(destination.raw))"),
-                timeout: .seconds(30)
-            )
         }
+        let runner = await server.runner(for: serial)
+        _ = try await runner.run(
+            .shell(serial: serial, script: "mv \(escape(from.raw)) \(escape(destination.raw))"),
+            timeout: .seconds(30)
+        )
     }
 
     private func zstdEnabled() async -> Bool {
