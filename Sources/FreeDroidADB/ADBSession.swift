@@ -327,7 +327,7 @@ public actor ADBSession: Transport {
 
     public func mkdir(_ path: RemotePath) async throws {
         if Self.wireEnabled {
-            let shell = ADBShellClient(host: wireHost, port: wirePort)
+            let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
             let result = try await shell.run(serial: serial, command: "mkdir -p \(escape(path.raw))")
             guard result.exitCode == 0 else {
                 throw TransportError.ioFailure(message: result.stderr)
@@ -340,7 +340,7 @@ public actor ADBSession: Transport {
 
     public func remove(_ path: RemotePath) async throws {
         if Self.wireEnabled {
-            let shell = ADBShellClient(host: wireHost, port: wirePort)
+            let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
             let result = try await shell.run(serial: serial, command: "rm -rf \(escape(path.raw))")
             guard result.exitCode == 0 else {
                 throw TransportError.ioFailure(message: result.stderr)
@@ -353,7 +353,7 @@ public actor ADBSession: Transport {
 
     public func rename(_ from: RemotePath, to destination: RemotePath) async throws {
         if Self.wireEnabled {
-            let shell = ADBShellClient(host: wireHost, port: wirePort)
+            let shell = ADBShellClient(host: wireHost, port: wirePort, features: await deviceFeatures())
             let result = try await shell.run(serial: serial, command: "mv \(escape(from.raw)) \(escape(destination.raw))")
             guard result.exitCode == 0 else {
                 throw TransportError.ioFailure(message: result.stderr)

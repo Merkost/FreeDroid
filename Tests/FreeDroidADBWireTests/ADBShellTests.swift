@@ -17,7 +17,7 @@ struct ADBShellTests {
             close(fd)
         }
 
-        let shell = ADBShellClient(host: "127.0.0.1", port: port)
+        let shell = ADBShellClient(host: "127.0.0.1", port: port, features: ["shell_v2"])
         let result = try await shell.run(serial: "test-serial", command: "mkdir -p /sdcard/TestDir")
         #expect(result.exitCode == 0)
 
@@ -36,7 +36,7 @@ struct ADBShellTests {
             close(fd)
         }
 
-        let shell = ADBShellClient(host: "127.0.0.1", port: port)
+        let shell = ADBShellClient(host: "127.0.0.1", port: port, features: ["shell_v2"])
         let result = try await shell.run(serial: "test-serial", command: "echo hello")
         #expect(result.stdout == "hello\n")
         #expect(result.exitCode == 0)
@@ -56,7 +56,7 @@ struct ADBShellTests {
             close(fd)
         }
 
-        let shell = ADBShellClient(host: "127.0.0.1", port: port)
+        let shell = ADBShellClient(host: "127.0.0.1", port: port, features: ["shell_v2"])
         let result = try await shell.run(serial: "test-serial", command: "cat /nonexistent")
         #expect(result.exitCode == 1)
         #expect(result.stderr.contains("No such file"))

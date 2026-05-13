@@ -93,6 +93,19 @@ public actor ADBWireConnection {
         return result
     }
 
+    public func receiveAvailable() async throws -> Data {
+        if !receiveBuffer.isEmpty {
+            let drained = receiveBuffer
+            receiveBuffer = Data()
+            return drained
+        }
+        do {
+            return try await receiveOnce()
+        } catch ADBWireError.socketClosed {
+            return Data()
+        }
+    }
+
     public func sendRaw(_ data: Data) async throws {
         try await send(data)
     }

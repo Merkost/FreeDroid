@@ -9,10 +9,12 @@ public struct ShellResult: Sendable {
 public actor ADBShellClient {
     private let host: String
     private let port: UInt16
+    private let features: Set<String>
 
-    public init(host: String = "127.0.0.1", port: UInt16 = 5037) {
+    public init(host: String = "127.0.0.1", port: UInt16 = 5037, features: Set<String> = []) {
         self.host = host
         self.port = port
+        self.features = features
     }
 
     public func run(serial: String, command: String) async throws -> ShellResult {
@@ -22,10 +24,29 @@ public actor ADBShellClient {
         try await conn.writeHostMessage("host:transport:\(serial)")
         try await conn.readOKAY()
 
-        try await conn.writeHostMessage("shell,v2,raw:\(command)")
-        try await conn.readOKAY()
+        if features.contains("shell_v2") {
+            try await conn.writeHostMessage("shell,v2,raw:\(command)")
+            try await conn.readOKAY()
+            return try await readShellV2Output(conn: conn)
+        } else {
+            try await conn.writeHostMessage("shell:\(command)")
+            try await conn.readOKAY()
+            return try await readShellV1Output(conn: conn)
+        }
+    }
 
-        return try await readShellV2Output(conn: conn)
+    private func readShellV1Output(conn: ADBWireConnection) async throws -> ShellResult {
+        var stdout = Data()
+        while true {
+            let chunk = try await conn.receiveAvailable()
+            if chunk.isEmpty { break }
+            stdout.append(chunk)
+        }
+        return ShellResult(
+            stdout: String(decoding: stdout, as: UTF8.self),
+            stderr: "",
+            exitCode: 0
+        )
     }
 
     private func readShellV2Output(conn: ADBWireConnection) async throws -> ShellResult {
