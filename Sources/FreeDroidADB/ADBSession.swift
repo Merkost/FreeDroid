@@ -45,17 +45,31 @@ public actor ADBSession: Transport {
             async let manufacturer = property(runner: runner, key: "ro.product.manufacturer")
             async let model = property(runner: runner, key: "ro.product.model")
             async let version = property(runner: runner, key: "ro.build.version.release")
+            async let storage = readStorageStats(runner: runner)
+            let stats = await storage
             let info = DeviceInfo(
                 serial: serial,
                 manufacturer: try await manufacturer,
                 model: try await model,
                 androidVersion: try await version,
-                storageCapacityBytes: nil,
-                storageFreeBytes: nil
+                storageCapacityBytes: stats?.capacity,
+                storageFreeBytes: stats?.free
             )
             cachedInfo = info
             return info
         }
+    }
+
+    private func readStorageStats(runner: any ADBRunner) async -> (capacity: Int64, free: Int64)? {
+        guard let out = try? await runner.run(
+            .shell(serial: serial, script: "df /sdcard"),
+            timeout: .seconds(3)
+        ) else { return nil }
+        let lines = out.stdout.split(separator: "\n", omittingEmptySubsequences: true)
+        guard lines.count >= 2 else { return nil }
+        let cols = lines[1].split(whereSeparator: { $0 == " " || $0 == "\t" }).map(String.init)
+        guard cols.count >= 4, let totalK = Int64(cols[1]), let freeK = Int64(cols[3]) else { return nil }
+        return (capacity: totalK * 1024, free: freeK * 1024)
     }
 
     private func property(runner: any ADBRunner, key: String) async throws -> String {
