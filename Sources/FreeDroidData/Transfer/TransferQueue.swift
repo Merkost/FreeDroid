@@ -8,7 +8,7 @@ public actor TransferQueue {
     }
 
     private var active: [UUID: ActiveJob] = [:]
-    private var stateSubscribers: [AsyncStream<[TransferState]>.Continuation] = []
+    private var stateSubscribers: [UUID: AsyncStream<[TransferState]>.Continuation] = [:]
     private var jobStates: [UUID: TransferState] = [:]
     private let maxParallelPerDevice: Int
 
@@ -37,9 +37,12 @@ public actor TransferQueue {
     }
 
     public func observe() -> AsyncStream<[TransferState]> {
-        AsyncStream { continuation in
-            Task { await self.subscribe(continuation) }
-            continuation.onTermination = { _ in }
+        let id = UUID()
+        return AsyncStream { continuation in
+            Task { await self.subscribe(id: id, continuation: continuation) }
+            continuation.onTermination = { _ in
+                Task { await self.unsubscribe(id: id) }
+            }
         }
     }
 
@@ -74,14 +77,18 @@ public actor TransferQueue {
         return .failed(.ioFailure(message: String(describing: error)))
     }
 
-    private func subscribe(_ continuation: AsyncStream<[TransferState]>.Continuation) {
-        stateSubscribers.append(continuation)
+    private func subscribe(id: UUID, continuation: AsyncStream<[TransferState]>.Continuation) {
+        stateSubscribers[id] = continuation
         continuation.yield(Array(jobStates.values))
+    }
+
+    private func unsubscribe(id: UUID) {
+        stateSubscribers.removeValue(forKey: id)
     }
 
     private func publish() {
         let snapshot = Array(jobStates.values)
-        for subscriber in stateSubscribers { subscriber.yield(snapshot) }
+        for subscriber in stateSubscribers.values { subscriber.yield(snapshot) }
     }
 
     private func publishRunning(_ jobID: UUID, completed: Int64, total: Int64, current: RemotePath?) {

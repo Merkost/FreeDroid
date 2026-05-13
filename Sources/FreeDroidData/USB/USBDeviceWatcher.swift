@@ -2,7 +2,7 @@ import Foundation
 
 public actor USBDeviceWatcher {
     private let center = USBNotificationCenter()
-    private var consumers: [AsyncStream<USBNotificationEvent>.Continuation] = []
+    private var consumers: [UUID: AsyncStream<USBNotificationEvent>.Continuation] = [:]
     private var task: Task<Void, Never>?
 
     public init() {}
@@ -19,13 +19,25 @@ public actor USBDeviceWatcher {
     }
 
     public func events() -> AsyncStream<USBNotificationEvent> {
-        let (stream, continuation) = AsyncStream<USBNotificationEvent>.makeStream()
-        consumers.append(continuation)
-        return stream
+        let id = UUID()
+        return AsyncStream { continuation in
+            Task { await self.register(id: id, continuation: continuation) }
+            continuation.onTermination = { _ in
+                Task { await self.unregister(id: id) }
+            }
+        }
+    }
+
+    private func register(id: UUID, continuation: AsyncStream<USBNotificationEvent>.Continuation) {
+        consumers[id] = continuation
+    }
+
+    private func unregister(id: UUID) {
+        consumers.removeValue(forKey: id)
     }
 
     private func broadcast(_ event: USBNotificationEvent) {
-        for continuation in consumers {
+        for continuation in consumers.values {
             continuation.yield(event)
         }
     }
@@ -34,7 +46,7 @@ public actor USBDeviceWatcher {
         center.stop()
         task?.cancel()
         task = nil
-        for continuation in consumers {
+        for continuation in consumers.values {
             continuation.finish()
         }
         consumers.removeAll()

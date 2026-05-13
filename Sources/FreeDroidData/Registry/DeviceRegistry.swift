@@ -14,7 +14,7 @@ private struct USBVendorProduct: Hashable, Sendable {
 // swiftlint:disable:next type_body_length
 public actor DeviceRegistry {
     private var records: [DeviceID: DeviceRecord] = [:]
-    private var consumers: [AsyncStream<[Device]>.Continuation] = []
+    private var consumers: [UUID: AsyncStream<[Device]>.Continuation] = [:]
     private let adbServer: ADBServer
     private let mtpRuntime: MTPRuntime
     private let mtpDiscovery: MTPDeviceDiscovery
@@ -351,16 +351,20 @@ public actor DeviceRegistry {
         }
     }
 
-    fileprivate func register(_ continuation: AsyncStream<[Device]>.Continuation) {
-        consumers.append(continuation)
+    fileprivate func register(id: UUID, continuation: AsyncStream<[Device]>.Continuation) {
+        consumers[id] = continuation
         continuation.yield(sortedSnapshot())
+    }
+
+    fileprivate func unregister(id: UUID) {
+        consumers.removeValue(forKey: id)
     }
 
     fileprivate func broadcast() {
         let snapshot = sortedSnapshot()
         if snapshot == lastBroadcastSnapshot { return }
         lastBroadcastSnapshot = snapshot
-        for continuation in consumers {
+        for continuation in consumers.values {
             continuation.yield(snapshot)
         }
     }
@@ -379,9 +383,12 @@ public actor DeviceRegistry {
 
 extension DeviceRegistry {
     public func observe() -> AsyncStream<[Device]> {
-        AsyncStream { continuation in
-            Task { await self.register(continuation) }
-            continuation.onTermination = { _ in }
+        let id = UUID()
+        return AsyncStream { continuation in
+            Task { await self.register(id: id, continuation: continuation) }
+            continuation.onTermination = { _ in
+                Task { await self.unregister(id: id) }
+            }
         }
     }
 
