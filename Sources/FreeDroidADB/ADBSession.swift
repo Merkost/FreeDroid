@@ -21,7 +21,9 @@ public actor ADBSession: Transport {
 
     private static var wireEnabled: Bool {
         let suite = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
-        return suite.bool(forKey: "freedroid.useWireClient")
+        let key = "freedroid.useWireClient"
+        if suite.object(forKey: key) == nil { return true }
+        return suite.bool(forKey: key)
     }
 
     public init(deviceID: DeviceID, serial: String, server: ADBServer, wireHost: String = "127.0.0.1", wirePort: UInt16 = 5037) {
