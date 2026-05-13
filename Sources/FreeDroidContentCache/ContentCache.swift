@@ -5,6 +5,7 @@ private struct CacheEntryMeta: Codable {
     let version: String
     let keyDescription: String
     let fetchedAt: Date
+    var lastAccessedAt: Date
     let size: Int64
     let deviceID: String
     let path: String
@@ -36,12 +37,7 @@ public actor ContentCache {
     public func lookup(_ key: ContentKey) -> URL? {
         let entryDir = entryDirectory(for: key)
         let metaURL = entryDir.appendingPathComponent("meta.json")
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .secondsSince1970
-        guard let metaData = try? Data(contentsOf: metaURL),
-              let meta = try? decoder.decode(CacheEntryMeta.self, from: metaData) else {
-            return nil
-        }
+        guard var meta = readMeta(at: metaURL) else { return nil }
         guard meta.deviceID == key.deviceID,
               meta.path == key.path,
               meta.mtimeUnix == key.mtimeUnix,
@@ -56,16 +52,33 @@ public actor ContentCache {
         guard let fileURL, fileManager.fileExists(atPath: fileURL.path) else {
             return nil
         }
+        let now = Date()
+        if now.timeIntervalSince(meta.lastAccessedAt) > 60 {
+            meta.lastAccessedAt = now
+            writeMeta(meta, to: metaURL)
+        }
         return fileURL
+    }
+
+    private func readMeta(at url: URL) -> CacheEntryMeta? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? decoder.decode(CacheEntryMeta.self, from: data)
+    }
+
+    private func writeMeta(_ meta: CacheEntryMeta, to url: URL) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        guard let data = try? encoder.encode(meta) else { return }
+        try? data.write(to: url, options: [.atomic])
     }
 
     public func store(_ source: URL, key: ContentKey, filename: String) async throws -> URL {
         let entryDir = entryDirectory(for: key)
         try fileManager.createDirectory(at: entryDir, withIntermediateDirectories: true)
 
-        let ext = (filename as NSString).pathExtension
-        let destName = ext.isEmpty ? filename : "\(filename)"
-        let destURL = entryDir.appendingPathComponent(destName)
+        let destURL = entryDir.appendingPathComponent(filename)
 
         if fileManager.fileExists(atPath: destURL.path) {
             try fileManager.removeItem(at: destURL)
@@ -77,21 +90,20 @@ public actor ContentCache {
             try fileManager.copyItem(at: source, to: destURL)
         }
 
+        let now = Date()
         let meta = CacheEntryMeta(
             version: "v1",
             keyDescription: "\(key.deviceID)|\(key.path)|\(key.mtimeUnix)|\(key.size)",
-            fetchedAt: Date(),
+            fetchedAt: now,
+            lastAccessedAt: now,
             size: key.size,
             deviceID: key.deviceID,
             path: key.path,
             mtimeUnix: key.mtimeUnix,
             keySizeBytes: key.size
         )
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .secondsSince1970
-        let metaData = try encoder.encode(meta)
         let metaURL = entryDir.appendingPathComponent("meta.json")
-        try metaData.write(to: metaURL, options: [.atomic])
+        writeMeta(meta, to: metaURL)
 
         await trimIfNeeded()
 
@@ -132,26 +144,20 @@ public actor ContentCache {
     }
 
     private func entryDirectory(for key: ContentKey) -> URL {
-        let deviceSlug = sha256Base32(key.deviceID)
-        let keySlug = key.sha256Hex
-        return rootURL
-            .appendingPathComponent(deviceSlug, isDirectory: true)
-            .appendingPathComponent(keySlug, isDirectory: true)
+        rootURL
+            .appendingPathComponent(Self.sha256Hex(key.deviceID), isDirectory: true)
+            .appendingPathComponent(key.sha256Hex, isDirectory: true)
     }
 
-    private func sha256Base32(_ input: String) -> String {
-        let digest = SHA256.hash(data: Data(input.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
+    private static func sha256Hex(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 
     private func readKey(from entryDir: URL) -> ContentKey? {
         let metaURL = entryDir.appendingPathComponent("meta.json")
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .secondsSince1970
-        guard let data = try? Data(contentsOf: metaURL),
-              let meta = try? decoder.decode(CacheEntryMeta.self, from: data) else {
-            return nil
-        }
+        guard let meta = readMeta(at: metaURL) else { return nil }
         return ContentKey(
             deviceID: meta.deviceID,
             path: meta.path,
@@ -192,7 +198,7 @@ public actor ContentCache {
 
         struct EntryRecord {
             let dir: URL
-            let fetchedAt: Date
+            let lastAccessedAt: Date
             let size: Int64
         }
 
@@ -207,28 +213,13 @@ public actor ContentCache {
                 includingPropertiesForKeys: nil
             )) ?? []
             for entryDir in entryDirs {
-                let metaURL = entryDir.appendingPathComponent("meta.json")
-                let metaDecoder = JSONDecoder()
-                metaDecoder.dateDecodingStrategy = .secondsSince1970
-                guard let data = try? Data(contentsOf: metaURL),
-                      let meta = try? metaDecoder.decode(CacheEntryMeta.self, from: data) else {
-                    continue
-                }
-                var entrySize: Int64 = 0
-                let files = (try? fileManager.contentsOfDirectory(
-                    at: entryDir,
-                    includingPropertiesForKeys: [.fileSizeKey]
-                )) ?? []
-                for file in files {
-                    if let sz = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                        entrySize += Int64(sz)
-                    }
-                }
-                records.append(EntryRecord(dir: entryDir, fetchedAt: meta.fetchedAt, size: entrySize))
+                guard let meta = readMeta(at: entryDir.appendingPathComponent("meta.json")) else { continue }
+                let entrySize = computeEntrySize(at: entryDir)
+                records.append(EntryRecord(dir: entryDir, lastAccessedAt: meta.lastAccessedAt, size: entrySize))
             }
         }
 
-        records.sort { $0.fetchedAt < $1.fetchedAt }
+        records.sort { $0.lastAccessedAt < $1.lastAccessedAt }
         var freed: Int64 = 0
         let mustFree = total - capacityBytes
         for record in records {
@@ -236,5 +227,19 @@ public actor ContentCache {
             try? fileManager.removeItem(at: record.dir)
             freed += record.size
         }
+    }
+
+    private func computeEntrySize(at entryDir: URL) -> Int64 {
+        var entrySize: Int64 = 0
+        let files = (try? fileManager.contentsOfDirectory(
+            at: entryDir,
+            includingPropertiesForKeys: [.fileSizeKey]
+        )) ?? []
+        for file in files {
+            if let sz = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                entrySize += Int64(sz)
+            }
+        }
+        return entrySize
     }
 }
