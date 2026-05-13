@@ -62,17 +62,32 @@ public actor MTPSession: Transport {
             } else {
                 serial = raw.identifier
             }
+            let storage = readStorageStats(dev)
             let result = DeviceInfo(
                 serial: serial,
                 manufacturer: manufacturer,
                 model: model,
                 androidVersion: nil,
-                storageCapacityBytes: nil,
-                storageFreeBytes: nil
+                storageCapacityBytes: storage?.capacity,
+                storageFreeBytes: storage?.free
             )
             cachedInfo = result
             return result
         }
+    }
+
+    private func readStorageStats(_ dev: UnsafeMutablePointer<LIBMTP_mtpdevice_t>) -> (capacity: Int64, free: Int64)? {
+        guard LIBMTP_Get_Storage(dev, 0) == 0 else { return nil }
+        var capacity: UInt64 = 0
+        var free: UInt64 = 0
+        var current = dev.pointee.storage
+        while let storage = current {
+            capacity = capacity &+ storage.pointee.MaxCapacity
+            free = free &+ storage.pointee.FreeSpaceInBytes
+            current = storage.pointee.next
+        }
+        guard capacity > 0 else { return nil }
+        return (capacity: Int64(capacity), free: Int64(free))
     }
 
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
