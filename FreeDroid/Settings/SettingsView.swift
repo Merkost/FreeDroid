@@ -53,8 +53,10 @@ struct GeneralSettingsView: View {
 }
 
 private enum AboutLinks {
-    static let github = URL(string: "https://github.com/") ?? URL(fileURLWithPath: "/")
-    static let license = URL(string: "https://opensource.org/license/mit/") ?? URL(fileURLWithPath: "/")
+    static let github = URL(string: "https://github.com/Merkost/FreeDroid")!
+    static let releases = URL(string: "https://github.com/Merkost/FreeDroid/releases")!
+    static let issues = URL(string: "https://github.com/Merkost/FreeDroid/issues/new")!
+    static let license = URL(string: "https://opensource.org/license/mit/")!
 }
 
 struct AboutSettingsView: View {
@@ -75,10 +77,16 @@ struct AboutSettingsView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, Spacing.xl)
             HStack(spacing: Spacing.md) {
-                Link("GitHub", destination: AboutLinks.github)
+                Link("Source", destination: AboutLinks.github)
+                Link("Releases", destination: AboutLinks.releases)
+                Link("Report issue", destination: AboutLinks.issues)
                 Link("License", destination: AboutLinks.license)
             }
             .padding(.top, Spacing.sm)
+            Text("Built by independent contributors. Star the repo if it saved you $40/year.")
+                .font(Typography.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, Spacing.xs)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(Spacing.xl)
