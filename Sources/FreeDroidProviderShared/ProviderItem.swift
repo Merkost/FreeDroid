@@ -2,7 +2,7 @@ import FileProvider
 import Foundation
 import UniformTypeIdentifiers
 
-public final class ProviderItem: NSObject, NSFileProviderItem {
+public final class ProviderItem: NSObject, NSFileProviderItem, @unchecked Sendable {
     public let itemIdentifier: NSFileProviderItemIdentifier
     public let parentItemIdentifier: NSFileProviderItemIdentifier
     public let filename: String

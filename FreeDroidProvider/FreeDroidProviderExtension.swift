@@ -85,7 +85,7 @@ final class FreeDroidProviderExtension: NSObject, NSFileProviderReplicatedExtens
         return progress
     }
 
-    private struct MaterializeResult: @unchecked Sendable {
+    private struct MaterializeResult: Sendable {
         let url: URL
         let item: ProviderItem
     }
