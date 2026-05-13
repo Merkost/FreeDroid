@@ -51,6 +51,19 @@ actor XPCFileServerHandler {
         case let .rename(deviceID, from, to):
             try await transport(for: deviceID).rename(from, to: to)
             return .empty
+        case let .fetchData(deviceID, path):
+            let staging = FileManager.default.temporaryDirectory
+                .appendingPathComponent("freedroid-host-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: staging) }
+            _ = try await transport(for: deviceID).fetch(path, into: staging, progress: nil)
+            return .data(try Data(contentsOf: staging))
+        case let .uploadData(deviceID, path, data):
+            let staging = FileManager.default.temporaryDirectory
+                .appendingPathComponent("freedroid-host-\(UUID().uuidString)")
+            try data.write(to: staging)
+            defer { try? FileManager.default.removeItem(at: staging) }
+            _ = try await transport(for: deviceID).upload(from: staging, to: path, progress: nil)
+            return .empty
         }
     }
 }

@@ -1,17 +1,15 @@
 import Foundation
 import FreeDroidIPC
-
-@objc protocol XPCFileServerProtocol {
-    func send(_ payload: Data) async -> Data
-}
+import os.log
 
 final class XPCFileServer: NSObject, NSXPCListenerDelegate {
+    private static let logger = Logger(subsystem: "com.merkost.freedroid", category: "xpc-server")
     private let listener: NSXPCListener
     private let handler: XPCFileServerHandler
 
     init(handler: XPCFileServerHandler) {
         self.handler = handler
-        self.listener = NSXPCListener(machServiceName: IPCEndpoint.machServiceName)
+        self.listener = NSXPCListener.anonymous()
         super.init()
         self.listener.delegate = self
     }

@@ -11,6 +11,8 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var systemColorScheme
     @Environment(\.openSettings) private var openSettings
     @State private var tab: DetailTab = .files
+    @State private var showingWifiPair = false
+    @State private var wifiPairVM = WifiPairSheetViewModel()
 
     enum DetailTab: Hashable { case files, gallery }
 
@@ -22,15 +24,8 @@ struct ContentView: View {
         ZStack(alignment: .top) {
             AmbientGradientBackground().ignoresSafeArea()
             VStack(spacing: 0) {
-                if #available(macOS 15.4, *) {
-                    FSExtensionBanner(
-                        status: container.extensionMonitor.status,
-                        onOpenSettings: { SystemSettingsLauncher.openLoginItemsAndExtensions() },
-                        onRefresh: {
-                            Task { await container.extensionMonitor.refresh() }
-                        }
-                    )
-                }
+                appHeader
+                Divider().overlay(theme.colors.line)
                 HStack(spacing: 0) {
                     ZStack(alignment: .bottomLeading) {
                         DeviceListView(
@@ -38,10 +33,25 @@ struct ContentView: View {
                             deviceFractions: container.transfersViewModel.deviceFractions,
                             onRevealInFinder: { device in
                                 FinderRevealer.revealTransferDestination(for: device.displayName)
+                            },
+                            onShowInFinder: { device in
+                                Task { await ProviderRevealer.revealInFinder(deviceID: device.id) }
+                            },
+                            onAddWifi: {
+                                wifiPairVM = WifiPairSheetViewModel()
+                                showingWifiPair = true
                             }
                         )
                         appearanceMenu
                             .padding(Spacing.md)
+                    }
+                    .sheet(isPresented: $showingWifiPair) {
+                        WifiPairSheet(
+                            viewModel: wifiPairVM,
+                            coordinator: container.wifiCoordinator,
+                            onDismiss: { showingWifiPair = false }
+                        )
+                        .padding(Spacing.xl)
                     }
                     Divider().overlay(theme.colors.line)
                     detail
@@ -78,10 +88,26 @@ struct ContentView: View {
                 }
             }
         }
-        .motion(.smooth, value: {
-            if #available(macOS 15.4, *) { return container.extensionMonitor.status }
-            return FSExtensionStatus.unknown
-        }())
+    }
+
+    private var appHeader: some View {
+        HStack(spacing: Spacing.sm) {
+            if let icon = NSApp.applicationIconImage {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 22, height: 22)
+            }
+            Text("FreeDroid")
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundStyle(theme.colors.text0)
+            Spacer()
+            Text("v\(container.bundleVersion)")
+                .font(Typography.caption)
+                .foregroundStyle(theme.colors.text2)
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.sm)
     }
 
     private var appearanceMenu: some View {
@@ -110,48 +136,58 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detail: some View {
-        if let selectedID = container.deviceListViewModel.selectedID {
-            VStack(spacing: 0) {
+        ZStack {
+            if let selectedID = container.deviceListViewModel.selectedID {
+                deviceDetail(for: selectedID)
+                    .id(selectedID)
+            } else {
+                placeholderDetail
+            }
+        }
+        .animation(.easeInOut(duration: 0.12), value: container.deviceListViewModel.selectedID)
+    }
+
+    private func deviceDetail(for selectedID: DeviceID) -> some View {
+        VStack(spacing: 0) {
+            HStack {
                 PillTabs(
                     selection: $tab,
                     tabs: [("Files", DetailTab.files), ("Gallery", DetailTab.gallery)]
                 )
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.md)
-                Divider().overlay(theme.colors.line)
-                SidebarFlow(selection: tab) { selectedTab in
-                    switch selectedTab {
-                    case .files:
-                        FileBrowserView(viewModel: container.fileBrowserViewModel(for: selectedID))
-                    case .gallery:
-                        GalleryView(
-                            viewModel: container.galleryViewModel(for: selectedID),
-                            onCopySelectionToMac: { items in
-                                Task {
-                                    guard let device = await container.registry.device(selectedID) else { return }
-                                    let stream = container.startTransferUseCase()(
-                                        deviceID: selectedID,
-                                        deviceName: device.displayName,
-                                        items: items.map { $0.path }
-                                    )
-                                    do {
-                                        for try await progress in stream {
-                                            await MainActor.run {
-                                                container.transfersViewModel.register(jobID: progress.jobID, on: selectedID)
-                                            }
+                Spacer()
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            Divider().overlay(theme.colors.line)
+            SidebarFlow(selection: tab) { selectedTab in
+                switch selectedTab {
+                case .files:
+                    FileBrowserView(viewModel: container.fileBrowserViewModel(for: selectedID))
+                case .gallery:
+                    GalleryView(
+                        viewModel: container.galleryViewModel(for: selectedID),
+                        onCopySelectionToMac: { items in
+                            Task {
+                                guard let device = await container.registry.device(selectedID) else { return }
+                                let stream = container.startTransferUseCase()(
+                                    deviceID: selectedID,
+                                    deviceName: device.displayName,
+                                    items: items.map { $0.path }
+                                )
+                                do {
+                                    for try await progress in stream {
+                                        await MainActor.run {
+                                            container.transfersViewModel.register(jobID: progress.jobID, on: selectedID)
                                         }
-                                    } catch {}
-                                }
+                                    }
+                                } catch {}
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .id(selectedID)
-        } else {
-            placeholderDetail
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var placeholderDetail: some View {

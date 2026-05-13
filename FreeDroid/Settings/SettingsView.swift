@@ -31,6 +31,21 @@ struct GeneralSettingsView: View {
                 }
                 .pickerStyle(.segmented)
             }
+            Section("Transfers") {
+                Picker("Parallel transfers per device", selection: $preferences.parallelTransfers) {
+                    ForEach(ParallelTransfers.allCases) { value in
+                        Text(value.label).tag(value)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("Run multiple file copies at once. Use 1 if your phone or USB cable is unstable.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+                Toggle("Use native ADB sync protocol", isOn: $preferences.useWireProtocol)
+                Text("Talks to your phone over a persistent socket instead of spawning a process per file. Major speedup on 'Preparing to copy' and folder listings. Leave on unless you hit weird errors on an unusual device.")
+                    .font(Typography.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .padding()

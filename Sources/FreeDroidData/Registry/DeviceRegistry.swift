@@ -11,6 +11,7 @@ private struct USBVendorProduct: Hashable, Sendable {
     let productID: UInt16
 }
 
+// swiftlint:disable:next type_body_length
 public actor DeviceRegistry {
     private var records: [DeviceID: DeviceRecord] = [:]
     private var consumers: [AsyncStream<[Device]>.Continuation] = []
@@ -24,6 +25,10 @@ public actor DeviceRegistry {
     private var periodicTask: Task<Void, Never>?
 
     private var knownADBDescriptors: Set<USBVendorProduct> = []
+    private var adbHintedModels: [String] = []
+    private var missedRescans: [DeviceID: Int] = [:]
+    private let maxMisses = 2
+    private var lastBroadcastSnapshot: [Device] = []
 
     public init(
         adbServer: ADBServer,
@@ -105,18 +110,30 @@ public actor DeviceRegistry {
             mtpDevices: mtpDevices,
             into: &newRecords
         )
-        await addMTPRecords(
+        let mtpVendorProducts = await addMTPRecords(
             mtpDevices: mtpDevices,
             adbSerials: authorizedSerials,
             usbSnapshot: usbSnapshot,
             into: &newRecords
         )
         addUnauthorizedADBRecords(adbDevices: adbDevices, into: &newRecords)
+        let coveredVendorProducts = mtpVendorProducts.union(knownADBDescriptors)
         addChargingOnlyRecords(coveredSerials: Set(newRecords.keys.map(\.raw)),
                                authorizedSerials: authorizedSerials,
+                               coveredVendorProducts: coveredVendorProducts,
                                into: &newRecords)
         for (oldID, oldRecord) in records where newRecords[oldID] == nil {
-            await oldRecord.transport?.close()
+            let misses = (missedRescans[oldID] ?? 0) + 1
+            if misses <= maxMisses {
+                missedRescans[oldID] = misses
+                newRecords[oldID] = oldRecord
+            } else {
+                missedRescans.removeValue(forKey: oldID)
+                await oldRecord.transport?.close()
+            }
+        }
+        for newID in newRecords.keys {
+            missedRescans.removeValue(forKey: newID)
         }
         records = newRecords
         broadcast()
@@ -127,6 +144,7 @@ public actor DeviceRegistry {
         mtpDevices: [MTPRawDevice],
         into newRecords: inout [DeviceID: DeviceRecord]
     ) async throws {
+        var emittedModels: [String] = []
         for adbEntry in adbDevices where adbEntry.state == .device {
             let identifier = adbEntry.serial
             let deviceID = DeviceID(raw: identifier)
@@ -139,10 +157,31 @@ public actor DeviceRegistry {
             ) ?? .adb
             guard kind == .adb else { continue }
             let session = ADBSession(deviceID: deviceID, serial: identifier, server: adbServer)
-            let deviceInfo = try await session.info
+            let deviceInfo: DeviceInfo
+            do {
+                deviceInfo = try await session.info
+            } catch {
+                registryLogger.error("getprop failed for \(identifier, privacy: .public): \(String(describing: error), privacy: .public) — emitting card with model fallback")
+                let fallbackModel = adbEntry.model ?? identifier
+                let fallback = Device(
+                    id: deviceID,
+                    displayName: fallbackModel,
+                    manufacturer: "",
+                    model: fallbackModel,
+                    storageCapacityBytes: nil,
+                    storageFreeBytes: nil,
+                    transport: .adb,
+                    connectionState: .ready
+                )
+                newRecords[deviceID] = DeviceRecord(device: fallback, transport: session)
+                recordADBDescriptors(forSerial: identifier)
+                emittedModels.append(fallbackModel)
+                continue
+            }
+            let displayName = adbEntry.model ?? deviceInfo.model
             let deviceRecord = Device(
                 id: deviceID,
-                displayName: adbEntry.model ?? deviceInfo.model,
+                displayName: displayName,
                 manufacturer: deviceInfo.manufacturer,
                 model: deviceInfo.model,
                 storageCapacityBytes: deviceInfo.storageCapacityBytes,
@@ -151,14 +190,42 @@ public actor DeviceRegistry {
                 connectionState: .ready
             )
             newRecords[deviceID] = DeviceRecord(device: deviceRecord, transport: session)
-            if let matched = usbSnapshot.first(where: {
-                $0.serialNumber == identifier
-                    || $0.serialNumber.map { identifier.contains($0) } == true
-            }) {
-                knownADBDescriptors.insert(
-                    USBVendorProduct(vendorID: matched.vendorID, productID: matched.productID)
-                )
-            }
+            recordADBDescriptors(forSerial: identifier)
+            emittedModels.append(displayName)
+            emittedModels.append(deviceInfo.model)
+            emittedModels.append(deviceInfo.manufacturer)
+        }
+        adbHintedModels = emittedModels
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func nameOverlapsAnyADBHint(_ candidate: String) -> Bool {
+        let candidateTokens = Self.tokens(in: candidate)
+        guard !candidateTokens.isEmpty else { return false }
+        for hint in adbHintedModels {
+            let hintTokens = Self.tokens(in: hint)
+            if !candidateTokens.isDisjoint(with: hintTokens) { return true }
+        }
+        return false
+    }
+
+    private static func tokens(in name: String) -> Set<String> {
+        let lowered = name.lowercased()
+        let separators = CharacterSet(charactersIn: " /_:()-")
+        let parts = lowered.components(separatedBy: separators).filter { $0.count >= 3 }
+        return Set(parts)
+    }
+
+    private func recordADBDescriptors(forSerial serial: String) {
+        let matches = usbSnapshot.filter {
+            guard let descriptorSerial = $0.serialNumber else { return false }
+            return descriptorSerial == serial
+                || serial.contains(descriptorSerial)
+                || descriptorSerial.contains(serial)
+        }
+        for descriptor in matches {
+            knownADBDescriptors.insert(USBVendorProduct(vendorID: descriptor.vendorID, productID: descriptor.productID))
         }
     }
 
@@ -167,9 +234,10 @@ public actor DeviceRegistry {
         adbSerials: Set<String>,
         usbSnapshot: [USBDeviceDescriptor],
         into newRecords: inout [DeviceID: DeviceRecord]
-    ) async {
+    ) async -> Set<USBVendorProduct> {
         var skipped = 0
         var emitted = 0
+        var emittedVendorProducts: Set<USBVendorProduct> = []
         for rawDevice in mtpDevices {
             let deviceID = DeviceID(raw: rawDevice.identifier)
             if newRecords[deviceID] != nil { continue }
@@ -187,6 +255,11 @@ public actor DeviceRegistry {
                 skipped += 1
                 continue
             }
+            if let productName = rawDevice.productName,
+               nameOverlapsAnyADBHint(productName) {
+                skipped += 1
+                continue
+            }
             let session = MTPSession(deviceID: deviceID, raw: rawDevice)
             guard let deviceInfo = try? await session.info else { continue }
             let deviceRecord = Device(
@@ -200,9 +273,11 @@ public actor DeviceRegistry {
                 connectionState: .ready
             )
             newRecords[deviceID] = DeviceRecord(device: deviceRecord, transport: session)
+            emittedVendorProducts.insert(candidateVP)
             emitted += 1
         }
         registryLogger.debug("MTP scan: \(mtpDevices.count) discovered, \(skipped) owned by ADB, \(emitted) emitted")
+        return emittedVendorProducts
     }
 
     private func addUnauthorizedADBRecords(
@@ -232,12 +307,15 @@ public actor DeviceRegistry {
     private func addChargingOnlyRecords(
         coveredSerials: Set<String>,
         authorizedSerials: Set<String>,
+        coveredVendorProducts: Set<USBVendorProduct>,
         into newRecords: inout [DeviceID: DeviceRecord]
     ) {
         for descriptor in usbSnapshot where AndroidVendorIDs.isAndroidVendor(descriptor.vendorID) {
             let serial = descriptor.serialNumber ?? "usb-\(descriptor.locationID)"
+            let vendorProduct = USBVendorProduct(vendorID: descriptor.vendorID, productID: descriptor.productID)
             let alreadyCovered = coveredSerials.contains(serial)
                 || authorizedSerials.contains(where: { serial.contains($0) || $0.contains(serial) })
+                || coveredVendorProducts.contains(vendorProduct)
             if alreadyCovered { continue }
             let deviceID = DeviceID(raw: serial)
             if newRecords[deviceID] != nil { continue }
@@ -261,14 +339,27 @@ public actor DeviceRegistry {
 
     fileprivate func register(_ continuation: AsyncStream<[Device]>.Continuation) {
         consumers.append(continuation)
-        continuation.yield(records.values.map(\.device))
+        continuation.yield(sortedSnapshot())
     }
 
     fileprivate func broadcast() {
-        let snapshot = records.values.map(\.device)
+        let snapshot = sortedSnapshot()
+        if snapshot == lastBroadcastSnapshot { return }
+        lastBroadcastSnapshot = snapshot
         for continuation in consumers {
             continuation.yield(snapshot)
         }
+    }
+
+    private func sortedSnapshot() -> [Device] {
+        records.values
+            .map(\.device)
+            .sorted { lhs, rhs in
+                if lhs.connectionState == rhs.connectionState {
+                    return lhs.id.raw < rhs.id.raw
+                }
+                return lhs.connectionState.sortRank < rhs.connectionState.sortRank
+            }
     }
 }
 

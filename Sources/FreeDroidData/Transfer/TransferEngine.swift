@@ -11,6 +11,11 @@ public struct TransferEngine: Sendable {
     }
 
     public func pull(_ path: RemotePath, to localURL: URL) async throws -> Int64 {
+        try Task.checkCancellation()
+        if transport.capabilities.supportsRangeRead == false {
+            try? FileManager.default.removeItem(at: localURL)
+            return try await transport.fetch(path, into: localURL, progress: nil)
+        }
         let entry = try await transport.stat(path)
         let total = entry.sizeBytes ?? 0
         FileManager.default.createFile(atPath: localURL.path, contents: nil)
@@ -29,6 +34,10 @@ public struct TransferEngine: Sendable {
     }
 
     public func push(localURL: URL, to remote: RemotePath) async throws -> Int64 {
+        try Task.checkCancellation()
+        if transport.capabilities.supportsRangeWrite == false {
+            return try await transport.upload(from: localURL, to: remote, progress: nil)
+        }
         let data = try Data(contentsOf: localURL)
         try await transport.write(remote, data: data, offset: 0)
         return Int64(data.count)

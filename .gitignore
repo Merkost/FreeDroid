@@ -27,3 +27,5 @@ notarization-receipt.json
 .env.*
 
 Configs/Local.xcconfig
+---
+.claude/

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 concurrency:
@@ -49,7 +49,7 @@ jobs:
       - name: Build app
         run: |
           xcodebuild \
-            -workspace FreeDroid.xcworkspace \
+            -project FreeDroid.xcodeproj \
             -scheme FreeDroid \
             -destination 'platform=macOS' \
             -configuration Debug \

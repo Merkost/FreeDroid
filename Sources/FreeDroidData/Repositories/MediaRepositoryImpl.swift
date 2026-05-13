@@ -21,7 +21,12 @@ public struct MediaRepositoryImpl: MediaRepository {
     }
 
     public func listMedia(in folder: RemotePath, page: Int) async throws -> MediaPage {
-        let entries = try await fileRepo.list(folder)
+        let entries: [RemoteEntry]
+        do {
+            entries = try await fileRepo.list(folder)
+        } catch {
+            return MediaPage(items: [], hasMore: false, nextPage: nil)
+        }
         let mediaEntries = entries
             .filter { $0.kind == .file }
             .filter { isMedia($0.name) }

@@ -21,9 +21,11 @@ public struct FileRepositoryImpl: FileRepository {
 
     public func list(_ path: RemotePath) async throws -> [RemoteEntry] {
         let key = ListingCacheKey(deviceID: deviceID, path: path)
-        if let cached = await cache.get(key) { return cached }
+        if let cached = await cache.get(key), !cached.isEmpty { return cached }
         let entries = try await transport().list(path)
-        await cache.put(key: key, value: entries)
+        if !entries.isEmpty {
+            await cache.put(key: key, value: entries)
+        }
         return entries
     }
 

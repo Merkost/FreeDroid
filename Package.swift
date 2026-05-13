@@ -19,7 +19,9 @@ let package = Package(
         .library(name: "DeviceManagement", targets: ["DeviceManagement"]),
         .library(name: "FileBrowser", targets: ["FileBrowser"]),
         .library(name: "Gallery", targets: ["Gallery"]),
-        .library(name: "Transfer", targets: ["Transfer"])
+        .library(name: "Transfer", targets: ["Transfer"]),
+        .library(name: "FreeDroidProviderShared", targets: ["FreeDroidProviderShared"]),
+        .library(name: "FreeDroidContentCache", targets: ["FreeDroidContentCache"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections", from: "1.1.0"),
@@ -65,6 +67,11 @@ let package = Package(
         ),
         .testTarget(
             name: "FreeDroidADBTests",
+            dependencies: ["FreeDroidADB"],
+            swiftSettings: strictConcurrency
+        ),
+        .testTarget(
+            name: "FreeDroidADBWireTests",
             dependencies: ["FreeDroidADB"],
             swiftSettings: strictConcurrency
         ),
@@ -123,6 +130,28 @@ let package = Package(
         .target(
             name: "FreeDroidIPC",
             dependencies: ["FreeDroidDomain"],
+            swiftSettings: strictConcurrency
+        ),
+
+        .target(
+            name: "FreeDroidProviderShared",
+            dependencies: ["FreeDroidDomain", "FreeDroidIPC"],
+            swiftSettings: strictConcurrency
+        ),
+        .testTarget(
+            name: "FreeDroidProviderSharedTests",
+            dependencies: ["FreeDroidProviderShared"],
+            swiftSettings: strictConcurrency
+        ),
+
+        .target(
+            name: "FreeDroidContentCache",
+            dependencies: ["FreeDroidDomain"],
+            swiftSettings: strictConcurrency
+        ),
+        .testTarget(
+            name: "FreeDroidContentCacheTests",
+            dependencies: ["FreeDroidContentCache"],
             swiftSettings: strictConcurrency
         ),
 

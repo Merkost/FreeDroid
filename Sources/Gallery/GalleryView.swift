@@ -14,30 +14,30 @@ public struct GalleryView: View {
 
     public var body: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: Spacing.xl) {
-                    if viewModel.sections.isEmpty && !viewModel.isLoading {
-                        EmptyState(
-                            icon: "photo.on.rectangle.angled",
-                            title: "No photos",
-                            message: "Photos and videos from this folder will appear here."
-                        )
-                        .frame(maxWidth: .infinity)
-                    }
-                    ForEach(viewModel.sections) { sec in
-                        sectionView(sec)
-                    }
-                    if viewModel.hasMore {
-                        Button("Load more") {
-                            Task { await viewModel.loadMore() }
+            VStack(spacing: 0) {
+                GalleryHeader(viewModel: viewModel)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Spacing.xl) {
+                        if viewModel.sections.isEmpty && !viewModel.isLoading {
+                            emptyStateView
+                                .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.bordered)
-                        .padding(.vertical, Spacing.md)
+                        ForEach(viewModel.sections) { sec in
+                            sectionView(sec)
+                        }
+                        if viewModel.hasMore {
+                            Button("Load more") {
+                                Task { await viewModel.loadMore() }
+                            }
+                            .buttonStyle(.bordered)
+                            .padding(.vertical, Spacing.md)
+                        }
                     }
+                    .padding(Spacing.lg)
                 }
-                .padding(Spacing.lg)
+                .task { await viewModel.load() }
             }
-            .task { await viewModel.load() }
 
             if !viewModel.selection.isEmpty {
                 CommandStrip(
@@ -62,6 +62,50 @@ public struct GalleryView: View {
                 .padding(.bottom, Spacing.lg)
             }
         }
+    }
+
+    @ViewBuilder
+    private var emptyStateView: some View {
+        VStack(spacing: Spacing.xl) {
+            EmptyState(
+                icon: "photo.on.rectangle.angled",
+                title: "No media here",
+                message: "No photos or videos found in\n\(viewModel.currentFolder.raw)"
+            )
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Try another folder")
+                    .font(Typography.captionEmphasized)
+                    .foregroundStyle(theme.colors.text2)
+                    .padding(.horizontal, Spacing.lg)
+
+                ForEach(suggestedFolders, id: \.path.raw) { preset in
+                    Button {
+                        Task { await viewModel.setFolder(preset.path) }
+                    } label: {
+                        HStack {
+                            Image(systemName: "folder")
+                                .foregroundStyle(theme.colors.accent)
+                            Text(preset.label)
+                                .font(Typography.body)
+                                .foregroundStyle(theme.colors.text0)
+                            Spacer()
+                            Text(preset.path.raw)
+                                .font(Typography.monoCaption)
+                                .foregroundStyle(theme.colors.text3)
+                        }
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, Spacing.sm)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.top, Spacing.xxl)
+    }
+
+    private var suggestedFolders: [GalleryPresetFolder] {
+        galleryPresetFolders.filter { $0.path != viewModel.currentFolder }
     }
 
     @ViewBuilder

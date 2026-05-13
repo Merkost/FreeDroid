@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import FSKit
 import os.log
 import FreeDroidDomain
 import FreeDroidData
@@ -35,8 +34,9 @@ final class AppContainer {
     let transferToastPresenter = TransferToastPresenter()
 
     let xpcRegistry = XPCConnectionRegistry()
-    let extensionMonitor = FSExtensionMonitor()
-    let mountCoordinator: MountCoordinator
+    let domainCoordinator: ProviderDomainCoordinator
+    let wifiStore = WifiEndpointStore()
+    let wifiCoordinator: WifiADBCoordinator
 
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -64,7 +64,16 @@ final class AppContainer {
             repository: transferRepository,
             cancel: CancelTransferUseCase(repository: transferRepository)
         )
-        self.mountCoordinator = MountCoordinator(registry: registry)
+        self.domainCoordinator = ProviderDomainCoordinator(registry: registry)
+        self.wifiCoordinator = WifiADBCoordinator(adbServer: adbServer, store: wifiStore)
+    }
+
+    func pair(host: String, port: Int, code: String) async throws {
+        try await wifiCoordinator.pair(host: host, port: port, code: code)
+    }
+
+    func disconnectWifi(_ endpoint: WifiEndpoint) async throws {
+        try await wifiCoordinator.disconnect(endpoint)
     }
 
     func fileBrowserViewModel(for deviceID: DeviceID) -> FileBrowserViewModel {
@@ -74,7 +83,8 @@ final class AppContainer {
             browseFolder: BrowseFolderUseCase(fileRepository: fileRepo),
             renameFile: RenameFileUseCase(fileRepository: fileRepo),
             deleteFiles: DeleteFilesUseCase(fileRepository: fileRepo),
-            createFolder: CreateFolderUseCase(fileRepository: fileRepo)
+            createFolder: CreateFolderUseCase(fileRepository: fileRepo),
+            downloadToTemp: DownloadToTempUseCase(fileRepository: fileRepo)
         )
     }
 
@@ -100,7 +110,7 @@ final class AppContainer {
     func start() async {
         try? await registry.start()
         xpcRegistry.start(registry: registry)
-        extensionMonitor.start()
-        mountCoordinator.start()
+        domainCoordinator.start()
+        await wifiCoordinator.start()
     }
 }
