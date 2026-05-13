@@ -44,7 +44,7 @@ public actor ADBSyncClient {
     public func listV2(remotePath: String) async throws -> [SyncEntry] {
         let pathData = Data(remotePath.utf8)
         var req = Data()
-        req.append(contentsOf: "LST2".utf8)
+        req.append(contentsOf: "LIS2".utf8)
         req.appendU32LE(UInt32(pathData.count))
         req.append(pathData)
         try await connection.sendRaw(req)
