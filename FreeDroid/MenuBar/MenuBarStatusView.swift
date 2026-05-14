@@ -64,6 +64,7 @@ struct MenuBarStatusView: View {
         case .ready: return "Ready"
         case .pendingAuthorization: return "Tap Allow on phone"
         case .chargingOnly: return "USB charging only"
+        case .disconnected: return "Disconnected"
         }
     }
 }

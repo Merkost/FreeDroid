@@ -26,7 +26,9 @@ public final class DeviceListViewModel {
 
     private func apply(_ snapshot: [Device]) {
         devices = snapshot
-        if let current = selectedID, devices.contains(where: { $0.id == current }) {
+        if let current = selectedID,
+           let device = devices.first(where: { $0.id == current }),
+           device.connectionState == .ready {
             return
         }
         selectedID = snapshot.first(where: { $0.connectionState == .ready })?.id

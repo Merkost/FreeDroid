@@ -81,6 +81,15 @@ struct DeviceCardViewModelTests {
         #expect(vm.ringState == .disconnected)
     }
 
+    @Test func disconnectedStateShowsHintAndNotReady() {
+        let vm = DeviceCardViewModel(
+            device: device("Pixel", transport: .adb, connectionState: .disconnected)
+        )
+        #expect(vm.statusHint == "Disconnected — reconnect to use")
+        #expect(vm.ringState == .disconnected)
+        #expect(!vm.isReady)
+    }
+
     @Test func isReadyOnlyForReadyState() {
         let readyVM = DeviceCardViewModel(device: device("A", transport: .adb, connectionState: .ready))
         let pendingVM = DeviceCardViewModel(

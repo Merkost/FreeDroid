@@ -126,7 +126,17 @@ public actor DeviceRegistry {
             let misses = (missedRescans[oldID] ?? 0) + 1
             if misses <= maxMisses {
                 missedRescans[oldID] = misses
-                newRecords[oldID] = oldRecord
+                let staleDevice = Device(
+                    id: oldRecord.device.id,
+                    displayName: oldRecord.device.displayName,
+                    manufacturer: oldRecord.device.manufacturer,
+                    model: oldRecord.device.model,
+                    storageCapacityBytes: oldRecord.device.storageCapacityBytes,
+                    storageFreeBytes: oldRecord.device.storageFreeBytes,
+                    transport: oldRecord.device.transport,
+                    connectionState: .disconnected
+                )
+                newRecords[oldID] = DeviceRecord(device: staleDevice, transport: oldRecord.transport)
             } else {
                 missedRescans.removeValue(forKey: oldID)
                 await oldRecord.transport?.close()

@@ -44,7 +44,7 @@ public final class DeviceCardViewModel: Identifiable {
             return transferFraction == nil ? .idle : .transferring
         case .pendingAuthorization:
             return .pendingAuthorization
-        case .chargingOnly:
+        case .chargingOnly, .disconnected:
             return .disconnected
         }
     }
@@ -54,6 +54,7 @@ public final class DeviceCardViewModel: Identifiable {
         case .ready: return nil
         case .pendingAuthorization: return "Tap Allow on your phone"
         case .chargingOnly: return "Set USB to File Transfer, or enable USB Debugging"
+        case .disconnected: return "Disconnected — reconnect to use"
         }
     }
 

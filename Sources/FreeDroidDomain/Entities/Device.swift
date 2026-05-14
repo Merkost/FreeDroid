@@ -2,12 +2,14 @@ public enum DeviceConnectionState: String, Hashable, Sendable, Codable {
     case ready
     case pendingAuthorization
     case chargingOnly
+    case disconnected
 
     public var sortRank: Int {
         switch self {
         case .ready: return 0
         case .pendingAuthorization: return 1
         case .chargingOnly: return 2
+        case .disconnected: return 3
         }
     }
 }
