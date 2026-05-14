@@ -48,12 +48,14 @@ public final class GalleryViewModel {
         rawItems = []
         nextPage = 0
         sections = []
+        hasMore = true
         lastError = nil
         await loadMore()
     }
 
     public func loadMore() async {
         guard !isLoading else { return }
+        guard hasMore || rawItems.isEmpty else { return }
         isLoading = true
         defer { isLoading = false }
         do {
@@ -63,9 +65,15 @@ public final class GalleryViewModel {
             hasMore = page.hasMore
             nextPage = page.nextPage ?? nextPage
             lastError = nil
-        } catch let error as TransportError {
-            lastError = error
         } catch {
+            recordError(error)
+        }
+    }
+
+    private func recordError(_ error: Error) {
+        if let transport = error as? TransportError {
+            lastError = transport
+        } else {
             lastError = .ioFailure(message: String(describing: error))
         }
     }
