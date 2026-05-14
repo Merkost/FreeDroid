@@ -2,7 +2,7 @@
 
 A map of what's in the repo, what works, and what doesn't — written for someone landing in the codebase cold.
 
-Last updated: 2026-05-14. **v0.1.0 shipped 2026-05-13.**
+Last updated: 2026-05-14 (cleanup pass v5). **v0.1.0 shipped 2026-05-13.**
 
 ## Project structure
 
@@ -138,10 +138,12 @@ The team ID now lives in `Configs/Local.xcconfig` (gitignored) referenced via `c
 
 DMG: <https://github.com/Merkost/FreeDroid/releases/tag/v0.1.0>. 90 commits squashed onto main as PR #1. Highlights: NSFileProvider migration (from broken third-party FSKit), native ADB wire-protocol client (Tier 3) with full LIST_V2 / STAT_V2 / RECV / SEND parsers, persistent connection pool, transfer-performance work (one-shot pull/push, content cache, parallelism, zstd, MTP streaming).
 
-### Post-v0.1.0 on `dev` (22 commits)
+### Post-v0.1.0 on `dev` (25 commits)
 
 Behaviour fixes (user-visible):
 
+- `2a8852e` Gallery `loadMore` no longer duplicates the last page after the feed is exhausted (was re-fetching the same page on every infinite-scroll trigger).
+- `663fd50` `FileBrowserViewModel.inspect` race fix — a cancelled task's deferred `inspectorIsPreparing = false` could clobber a newer inspect's `true` state.
 - `0cf0067` New `.disconnected` device state — phones immediately greyed out on unplug instead of staying clickable during the 30s rescan-grace.
 - `b6c25a8` MTP devices now show a populated storage bar (`LIBMTP_Get_Storage`).
 - `a3b2875` `TransferProgressSink` name-collision fix — `ADBSession.fetch` now actually satisfies the `Transport` protocol witness.
@@ -170,7 +172,7 @@ Hygiene / Swift 6 strict concurrency:
 
 ### What's deferred (still on the roadmap)
 
-See `docs/superpowers/plans/2026-05-14-cleanup-v4.md` for the latest. Top of queue:
+See `docs/superpowers/plans/2026-05-14-cleanup-v5.md` for the latest. Top of queue:
 
 1. **F1** — in-app live transfer panel for Finder copies (biggest perceived-quality win).
 2. **F2** — cross-device drag-and-drop, building on the wire client.
