@@ -41,10 +41,13 @@ final class AppContainer {
     init() {
         self.bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
         do {
-            let server = try ADBServer.liveSync()
-            self.adbServer = server
+            self.adbServer = try ADBServer.liveSync()
         } catch {
-            fatalError("Failed to initialize ADB server: \(error)")
+            fatalError(
+                "Bundled adb binary is missing or unreadable — the FreeDroidADB resource bundle was not packaged into the app. " +
+                "This is a build/distribution bug, not a user-recoverable error. " +
+                "Run xcodegen + a clean rebuild. Underlying error: \(error)"
+            )
         }
         self.mtpDiscovery = MTPDeviceDiscovery(runtime: mtpRuntime)
         let thumbsURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]

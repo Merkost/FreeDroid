@@ -56,20 +56,16 @@ public final class FileBrowserViewModel {
         let size = entry.sizeBytes ?? Int64.max
         guard size <= inspectorAutoPreviewByteLimit else { return }
         inspectorIsPreparing = true
-        inspectorTask = Task { [weak self, entry] in
-            defer { Task { @MainActor in self?.inspectorIsPreparing = false } }
-            do {
-                let url = try await downloader(entry: entry)
-                guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    guard self?.inspectedEntry?.path == entry.path else { return }
-                    self?.inspectorPreviewURL = url
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                await MainActor.run { self?.inspectorPreviewURL = nil }
-            }
+        let targetPath = entry.path
+        let task = Task { [weak self, entry] in
+            let url = try? await downloader(entry: entry)
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            guard self.inspectedEntry?.path == targetPath else { return }
+            self.inspectorPreviewURL = url
+            self.inspectorIsPreparing = false
         }
+        inspectorTask = task
     }
 
     public func openInspectedFile() async -> URL? {
@@ -117,14 +113,20 @@ public final class FileBrowserViewModel {
             let raw = try await browseFolderUseCase(path)
             entries = sort.apply(raw, ascending: sortAscending)
             lastError = nil
-            if let focused = focusedPath, entries.contains(where: { $0.path == focused }) == false {
+            if let focused = focusedPath, !entries.contains(where: { $0.path == focused }) {
                 focusedPath = entries.first?.path
             } else if focusedPath == nil {
                 focusedPath = entries.first?.path
             }
-        } catch let error as TransportError {
-            lastError = error
         } catch {
+            recordError(error)
+        }
+    }
+
+    private func recordError(_ error: Error) {
+        if let transport = error as? TransportError {
+            lastError = transport
+        } else {
             lastError = .ioFailure(message: String(describing: error))
         }
     }
@@ -216,10 +218,8 @@ public final class FileBrowserViewModel {
             if let focused = focusedPath, removed.contains(focused) {
                 focusedPath = entries.first?.path
             }
-        } catch let error as TransportError {
-            lastError = error
         } catch {
-            lastError = .ioFailure(message: String(describing: error))
+            recordError(error)
         }
     }
 
@@ -227,10 +227,8 @@ public final class FileBrowserViewModel {
         do {
             _ = try await createFolderUseCase(at: path, name: name)
             await reload()
-        } catch let error as TransportError {
-            lastError = error
         } catch {
-            lastError = .ioFailure(message: String(describing: error))
+            recordError(error)
         }
     }
 
@@ -240,10 +238,8 @@ public final class FileBrowserViewModel {
         do {
             try await renameFileUseCase(from: targetPath, to: dest)
             await reload()
-        } catch let error as TransportError {
-            lastError = error
         } catch {
-            lastError = .ioFailure(message: String(describing: error))
+            recordError(error)
         }
     }
 }
