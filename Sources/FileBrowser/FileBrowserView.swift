@@ -1,6 +1,7 @@
 import SwiftUI
 import FreeDroidDomain
 import FreeDroidUI
+import UniformTypeIdentifiers
 
 // swiftlint:disable:next type_body_length
 public struct FileBrowserView: View {
@@ -10,6 +11,7 @@ public struct FileBrowserView: View {
     @State private var newName: String = ""
     @State private var isCreatingFolder = false
     @State private var newFolderName: String = ""
+    @State private var isImportingFiles = false
     @State private var pendingDeletion = false
     @FocusState private var listFocused: Bool
 
@@ -39,6 +41,14 @@ public struct FileBrowserView: View {
         .sheet(isPresented: $isCreatingFolder) {
             newFolderSheet
         }
+        .fileImporter(
+            isPresented: $isImportingFiles,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            guard case .success(let urls) = result else { return }
+            Task { await viewModel.upload(urls) }
+        }
         .confirmationDialog(
             deletionPrompt,
             isPresented: $pendingDeletion,
@@ -59,6 +69,10 @@ public struct FileBrowserView: View {
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
+
+                destinationShortcuts
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.sm)
 
                 Divider().overlay(theme.colors.line)
 
@@ -91,6 +105,27 @@ public struct FileBrowserView: View {
         .motion(.smooth, value: viewModel.selection.count)
     }
 
+    private var destinationShortcuts: some View {
+        HStack(spacing: Spacing.xs) {
+            ForEach([
+                ("Download", "arrow.down.circle", RemotePath(raw: "/sdcard/Download")),
+                ("Movies", "film", RemotePath(raw: "/sdcard/Movies")),
+                ("Pictures", "photo", RemotePath(raw: "/sdcard/Pictures")),
+                ("DCIM", "camera", RemotePath(raw: "/sdcard/DCIM"))
+            ], id: \.2) { item in
+                Button {
+                    Task { await viewModel.navigate(to: item.2) }
+                } label: {
+                    Label(item.0, systemImage: item.1)
+                        .font(Typography.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            Spacer()
+        }
+    }
+
     @ViewBuilder
     private var contentArea: some View {
         if viewModel.isLoading && viewModel.entries.isEmpty {
@@ -121,11 +156,13 @@ public struct FileBrowserView: View {
             EmptyState(
                 icon: "folder",
                 title: "Empty folder",
-                message: "Drop files here to upload, or create a new folder to organize this device.",
-                actionLabel: "New folder"
+                message: "Upload files from your Mac, or create a new folder to organize this device.",
+                actionLabel: "Upload files"
             ) {
-                isCreatingFolder = true
+                isImportingFiles = true
             }
+            Button("New folder") { isCreatingFolder = true }
+                .buttonStyle(.bordered)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

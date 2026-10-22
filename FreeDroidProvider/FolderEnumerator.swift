@@ -3,7 +3,7 @@ import Foundation
 import FreeDroidProviderShared
 
 final class FolderEnumerator: NSObject, NSFileProviderEnumerator, @unchecked Sendable {
-    static let schemaVersion = "v3-mtime"
+    static let schemaVersion = "v4-symlink-folders"
     private static let currentAnchor = NSFileProviderSyncAnchor(Data(schemaVersion.utf8))
 
     private let containerIdentifier: NSFileProviderItemIdentifier

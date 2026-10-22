@@ -61,6 +61,20 @@ Plug your phone in. The phone appears in Finder under **Locations**. Drag your p
 
 Plug in your Android device, FreeDroid shows it in Finder's Locations sidebar — no System Settings toggle, no kernel extensions, no `macFUSE`, no nagware. Browse `/sdcard` directly, preview files with Quick Look, drag in either direction. ADB gives you full filesystem speed when USB Debugging is on; MTP handles devices that aren't in dev mode. Wi-Fi ADB pairing means you can also leave the cable in the drawer. Multiple devices show up simultaneously, each as its own location.
 
+### Quest-ready fork
+
+The [`julientexier86/FreeDroid`](https://github.com/julientexier86/FreeDroid/tree/codex/freedroid-finder-usb-fixes) branch is maintained as a Quest-focused companion to upstream FreeDroid. It is tested on Apple Silicon with a Meta Quest 2 and adds:
+
+- direct ADB transfers that avoid Finder offset-write failures;
+- durable 8 MiB chunks for resuming interrupted large transfers;
+- media-store refresh after uploads so copied files appear inside the headset;
+- Quest destination shortcuts (`Download`, `Movies`, `Pictures`, `DCIM`);
+- APK installation, ADB diagnostics, transfer history and notifications;
+- multi-Quest sending and preflight free-space checks;
+- a safe **Clean storage** tool that ranks large user files before deletion.
+
+The cleaner scans only user media folders, never deletes automatically, excludes hidden files and symlinks, and requires explicit confirmation. The upstream relationship is tracked in [Merkost/FreeDroid#3](https://github.com/Merkost/FreeDroid/pull/3).
+
 ---
 
 ## Features

@@ -57,12 +57,25 @@ actor XPCFileServerHandler {
             defer { try? FileManager.default.removeItem(at: staging) }
             _ = try await transport(for: deviceID).fetch(path, into: staging, progress: nil)
             return .data(try Data(contentsOf: staging))
+        case let .fetchFile(deviceID, path, destinationPath, _):
+            let destination = URL(fileURLWithPath: destinationPath)
+            try FileManager.default.createDirectory(
+                at: destination.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            _ = try await transport(for: deviceID).fetch(path, into: destination, progress: nil)
+            return .empty
         case let .uploadData(deviceID, path, data):
             let staging = FileManager.default.temporaryDirectory
                 .appendingPathComponent("freedroid-host-\(UUID().uuidString)")
             try data.write(to: staging)
             defer { try? FileManager.default.removeItem(at: staging) }
             _ = try await transport(for: deviceID).upload(from: staging, to: path, progress: nil)
+            return .empty
+        case let .uploadFile(deviceID, path, sourcePath, _):
+            _ = try await transport(for: deviceID).upload(
+                from: URL(fileURLWithPath: sourcePath), to: path, progress: nil
+            )
             return .empty
         }
     }

@@ -119,25 +119,59 @@ public actor ADBSession: Transport {
     }
 
     public func write(_ path: RemotePath, data: Data, offset: Int64) async throws {
-        guard offset == 0 else {
-            throw TransportError.unsupported(reason: "ADB push does not support offset writes")
+        try requireUserStoragePath(path)
+        guard offset >= 0 else {
+            throw TransportError.ioFailure(message: "Negative write offset")
+        }
+        if offset > 0 {
+            // File Provider may stream a file in several writes. ADB sync's
+            // push operation replaces the destination, so merge the range
+            // locally and send the complete result back to the device.
+            var merged = Data()
+            do {
+                let current = try await stat(path)
+                if let size = current.sizeBytes, size > 0 {
+                    merged = try await read(path, offset: 0, length: Int(size))
+                }
+            } catch TransportError.notFound {
+                merged = Data()
+            }
+            let start = Int(offset)
+            if merged.count < start {
+                merged.append(Data(repeating: 0, count: start - merged.count))
+            }
+            let end = start + data.count
+            if merged.count < end {
+                merged.append(Data(repeating: 0, count: end - merged.count))
+            }
+            merged.replaceSubrange(start..<end, with: data)
+            try await write(path, data: merged, offset: 0)
+            return
         }
         try await withWireFallback(op: "write", path: path.raw) {
             try await self.wireWrite(path, data: data)
         } legacy: {
             try await self.legacyWrite(path, data: data)
         }
+        // Finder writes through this path. Notify Android's MediaProvider so
+        // Quest file/media pickers refresh instead of waiting for a reboot or
+        // a manual rescan.
+        await rescanMediaStore(path: path)
     }
 
     public func mkdir(_ path: RemotePath) async throws {
+        try requireUserStoragePath(path)
         try await runShell(op: "mkdir", command: "mkdir -p \(escape(path.raw))", legacyTimeout: .seconds(5))
     }
 
     public func remove(_ path: RemotePath) async throws {
+        try requireUserStoragePath(path)
         try await runShell(op: "remove", command: "rm -rf \(escape(path.raw))", legacyTimeout: .seconds(30))
     }
 
     public func rename(_ from: RemotePath, to destination: RemotePath) async throws {
+        try requireUserStoragePath(from)
+        try requireUserStoragePath(destination)
         try await runShell(
             op: "rename",
             command: "mv \(escape(from.raw)) \(escape(destination.raw))",
@@ -154,16 +188,116 @@ public actor ADBSession: Transport {
     }
 
     public func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
+        try requireUserStoragePath(path)
         guard FileManager.default.fileExists(atPath: source.path) else {
             throw TransportError.notFound(RemotePath(raw: source.path))
         }
-        let bytes = try await withWireFallback(op: "upload", path: path.raw) {
-            try await self.wireUpload(from: source, to: path, progress: progress)
-        } legacy: {
-            try await self.legacyUpload(from: source, to: path, progress: progress)
+        let temporary = (path.parent ?? .root).appending(".freedroid-(UUID().uuidString)-(path.name)")
+        try requireUserStoragePath(temporary)
+        var committed = false
+        defer {
+            if !committed { Task { try? await self.remove(temporary) } }
         }
+        let bytes = try await withWireFallback(op: "upload", path: temporary.raw) {
+            try await self.wireUpload(from: source, to: temporary, progress: progress)
+        } legacy: {
+            try await self.legacyUpload(from: source, to: temporary, progress: progress)
+        }
+        let temporarySize = try await stat(temporary).sizeBytes ?? -1
+        guard temporarySize == bytes else {
+            throw TransportError.ioFailure(
+                message: "Temporary upload verification failed for \(path.raw)"
+            )
+        }
+        try await rename(temporary, to: path)
+        committed = true
         await rescanMediaStore(path: path)
         return bytes
+    }
+
+    public func installAPK(from source: URL) async throws {
+        let accessed = source.startAccessingSecurityScopedResource()
+        defer {
+            if accessed { source.stopAccessingSecurityScopedResource() }
+        }
+        guard FileManager.default.fileExists(atPath: source.path) else {
+            throw TransportError.notFound(RemotePath(raw: source.path))
+        }
+        let runner = await server.runner(for: serial)
+        do {
+            _ = try await runner.run(
+                .install(serial: serial, local: source.path),
+                timeout: .seconds(900)
+            )
+        } catch let error as ADBRunnerError {
+            throw TransportError.ioFailure(message: error.localizedDescription)
+        }
+    }
+
+    /// Uploads a large file in durable chunks. A retry reuses the same remote
+    /// checkpoint directory when the source metadata is unchanged.
+    public func uploadResumable(from source: URL, to path: RemotePath, progress: (any TransferProgressSink)?) async throws -> Int64 {
+        try requireUserStoragePath(path)
+        let attributes = try FileManager.default.attributesOfItem(atPath: source.path)
+        let total = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+        guard total > 0 else { return try await upload(from: source, to: path, progress: progress) }
+        let modified = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let safeName = source.lastPathComponent.map { character -> Character in
+            character.isLetter || character.isNumber ? character : "-"
+        }
+        let checkpoint = RemotePath(raw: "/sdcard/.freedroid-resume-\(String(safeName))-\(Int64(modified))-\(total)")
+        try requireUserStoragePath(checkpoint)
+        try await mkdir(checkpoint)
+        let chunkSize = Int64(8 * 1024 * 1024)
+        let handle = try FileHandle(forReadingFrom: source)
+        defer { try? handle.close() }
+        var offset: Int64 = 0
+        var index = 0
+        while offset < total {
+            try Task.checkCancellation()
+            let length = Int(min(chunkSize, total - offset))
+            guard let data = try handle.read(upToCount: length), !data.isEmpty else { break }
+            let part = checkpoint.appending("part-\(index)")
+            let existingSize = (try? await stat(part))?.sizeBytes
+            if existingSize == Int64(data.count) {
+                offset += Int64(data.count)
+                progress?.report(bytesTransferred: offset, totalBytes: total)
+                index += 1
+                continue
+            }
+            let localPart = FileManager.default.temporaryDirectory
+                .appendingPathComponent("freedroid-part-\(UUID().uuidString)")
+            try data.write(to: localPart, options: .atomic)
+            defer { try? FileManager.default.removeItem(at: localPart) }
+            _ = try await withWireFallback(op: "upload-resume", path: part.raw) {
+                try await self.wireUpload(from: localPart, to: part, progress: nil)
+            } legacy: {
+                try await self.legacyUpload(from: localPart, to: part, progress: nil)
+            }
+            offset += Int64(data.count)
+            progress?.report(bytesTransferred: offset, totalBytes: total)
+            index += 1
+        }
+        let assembled = checkpoint.appending("assembled")
+        try await runShell(
+            op: "assemble-resume",
+            command: "cat \(escape(checkpoint.raw))/part-* > \(escape(assembled.raw)) && mv \(escape(assembled.raw)) \(escape(path.raw))",
+            legacyTimeout: .seconds(120)
+        )
+        let finalSize = try await stat(path).sizeBytes ?? -1
+        guard finalSize == total else {
+            throw TransportError.ioFailure(message: "Resumed upload verification failed for \(path.raw)")
+        }
+        try? await remove(checkpoint)
+        await rescanMediaStore(path: path)
+        progress?.report(bytesTransferred: total, totalBytes: total)
+        return total
+    }
+
+    private func requireUserStoragePath(_ path: RemotePath) throws {
+        guard path.raw == "/sdcard" || path.raw.hasPrefix("/sdcard/") else {
+            throw TransportError.unsupported(reason: "Write access is limited to /sdcard")
+        }
     }
 
     private func legacyFetch(_ path: RemotePath, into destination: URL, progress: TransferProgressSink?) async throws -> Int64 {
@@ -177,7 +311,7 @@ public actor ADBSession: Transport {
             timeout: .seconds(600)
         )
         let size = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
-        progress?(size, size)
+        progress?.report(bytesTransferred: size, totalBytes: size)
         return size
     }
 
@@ -189,7 +323,7 @@ public actor ADBSession: Transport {
             .push(serial: serial, local: source.path, remote: path.raw, compressed: compressed),
             timeout: .seconds(600)
         )
-        progress?(size, size)
+        progress?.report(bytesTransferred: size, totalBytes: size)
         return size
     }
 
@@ -260,17 +394,31 @@ public actor ADBSession: Transport {
             }
             return try await syncClient.listV1(remotePath: path.raw)
         }
-        return entries.map { entry in
-            let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
-            return RemoteEntry(
-                path: path.appending(entry.name),
+        var result: [RemoteEntry] = []
+        result.reserveCapacity(entries.count)
+        for entry in entries {
+            let childPath = path.appending(entry.name)
+            let kind: EntryKind
+            if entry.isDirectory {
+                kind = .directory
+            } else if entry.isSymlink {
+                // Android commonly exposes /sdcard as a symlink to the user
+                // storage directory. File Provider must see the target kind,
+                // otherwise Finder treats it as a tiny, unreadable document.
+                kind = await symlinkKind(at: childPath)
+            } else {
+                kind = .file
+            }
+            result.append(RemoteEntry(
+                path: childPath,
                 name: entry.name,
                 kind: kind,
-                sizeBytes: entry.isDirectory ? nil : Int64(bitPattern: entry.size),
+                sizeBytes: kind == .directory ? nil : Int64(bitPattern: entry.size),
                 modifiedAt: Date(timeIntervalSince1970: TimeInterval(entry.mtime)),
                 isHidden: entry.name.hasPrefix(".")
-            )
+            ))
         }
+        return result
     }
 
     private func wireStat(_ path: RemotePath) async throws -> RemoteEntry {
@@ -281,12 +429,19 @@ public actor ADBSession: Transport {
             }
             return try await syncClient.statV1(remotePath: path.raw)
         }
-        let kind: EntryKind = entry.isDirectory ? .directory : (entry.isSymlink ? .symlink : .file)
+        let kind: EntryKind
+        if entry.isDirectory {
+            kind = .directory
+        } else if entry.isSymlink {
+            kind = await symlinkKind(at: path)
+        } else {
+            kind = .file
+        }
         return RemoteEntry(
             path: path,
             name: path.name,
             kind: kind,
-            sizeBytes: entry.isDirectory ? nil : Int64(bitPattern: entry.size),
+            sizeBytes: kind == .directory ? nil : Int64(bitPattern: entry.size),
             modifiedAt: Date(timeIntervalSince1970: TimeInterval(entry.mtime)),
             isHidden: path.name.hasPrefix(".")
         )
@@ -315,13 +470,22 @@ public actor ADBSession: Transport {
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: destination)
         return try await syncPool.withConnection { syncClient in
-            try await syncClient.recv(remotePath: path.raw, to: destination, progress: progress)
+            let sink = Self.makeWireProgress(progress)
+            return try await syncClient.recv(remotePath: path.raw, to: destination, progress: sink)
         }
     }
 
     private func wireUpload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
         try await syncPool.withConnection { syncClient in
-            try await syncClient.send(from: source, remotePath: path.raw, progress: progress)
+            let sink = Self.makeWireProgress(progress)
+            return try await syncClient.send(from: source, remotePath: path.raw, progress: sink)
+        }
+    }
+
+    private static func makeWireProgress(_ progress: TransferProgressSink?) -> ADBSyncProgressSink? {
+        guard let progress else { return nil }
+        return { bytes, total in
+            progress.report(bytesTransferred: bytes, totalBytes: total)
         }
     }
 
@@ -385,6 +549,19 @@ public actor ADBSession: Transport {
         if lowered.contains("directory") { return .directory }
         if lowered.contains("symbolic") { return .symlink }
         return .file
+    }
+
+    private func symlinkKind(at path: RemotePath) async -> EntryKind {
+        let runner = await server.runner(for: serial)
+        do {
+            let out = try await runner.run(
+                .shell(serial: serial, script: "test -d \(escape(path.raw)) && echo directory || echo other"),
+                timeout: .seconds(5)
+            )
+            return out.stdout.contains("directory") ? .directory : .symlink
+        } catch {
+            return .symlink
+        }
     }
 
     private func legacyStatViaList(_ path: RemotePath) async throws -> RemoteEntry {

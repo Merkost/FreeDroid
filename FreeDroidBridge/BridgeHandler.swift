@@ -3,6 +3,15 @@ import FreeDroidDomain
 import FreeDroidIPC
 import os.log
 
+private struct FileProgressSink: TransferProgressSink, Sendable {
+    let url: URL
+
+    func report(bytesTransferred: Int64, totalBytes: Int64?) {
+        let total = totalBytes ?? -1
+        try? "\(bytesTransferred)/\(total)".write(to: url, atomically: true, encoding: .utf8)
+    }
+}
+
 private let handlerLogger = Logger(subsystem: "com.merkost.freedroid", category: "bridge")
 
 actor BridgeHandler {
@@ -95,6 +104,18 @@ actor BridgeHandler {
                 .fetch(path, into: staging, progress: nil)
             let data = try Data(contentsOf: staging)
             return .data(data)
+        case let .fetchFile(deviceID, path, destinationPath, progressPath):
+            let destination = URL(fileURLWithPath: destinationPath)
+            let progress = URL(fileURLWithPath: progressPath)
+            try FileManager.default.createDirectory(
+                at: destination.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try? FileManager.default.removeItem(at: destination)
+            try? FileManager.default.removeItem(at: progress)
+            _ = try await sessions.session(for: deviceID.raw)
+                .fetch(path, into: destination, progress: FileProgressSink(url: progress))
+            return .empty
         case let .uploadData(deviceID, path, data):
             let staging = FileManager.default.temporaryDirectory
                 .appendingPathComponent("freedroid-bridge-\(UUID().uuidString)")
@@ -102,6 +123,14 @@ actor BridgeHandler {
             defer { try? FileManager.default.removeItem(at: staging) }
             _ = try await sessions.session(for: deviceID.raw)
                 .upload(from: staging, to: path, progress: nil)
+            if let parent = path.parent { invalidateListing(deviceID: deviceID, path: parent) }
+            return .empty
+        case let .uploadFile(deviceID, path, sourcePath, progressPath):
+            _ = try await sessions.session(for: deviceID.raw).upload(
+                from: URL(fileURLWithPath: sourcePath),
+                to: path,
+                progress: FileProgressSink(url: URL(fileURLWithPath: progressPath))
+            )
             if let parent = path.parent { invalidateListing(deviceID: deviceID, path: parent) }
             return .empty
         }

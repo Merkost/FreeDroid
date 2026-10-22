@@ -2,7 +2,7 @@
 
 A map of what's in the repo, what works, and what doesn't — written for someone landing in the codebase cold.
 
-Last updated: 2026-05-12.
+Last updated: 2026-10-22.
 
 ## Project structure
 
@@ -74,6 +74,9 @@ docs/
 | **In-app file browser** | ✅ Browse, sort, rename, delete, mkdir on `/sdcard` and subdirs |
 | **Photo gallery** | ✅ Masonry grid, async thumbnails, date sections |
 | **Transfer queue** | ✅ Pull files to `~/Downloads/FreeDroid/<device>/` with progress, command strip, toasts |
+| **Quest transfer enhancements** | ✅ Atomic ADB uploads, sync skips, retries, durable resume, media refresh, multi-Quest sending |
+| **Quest management tools** | ✅ APK install, ADB diagnostics, free-space preflight, transfer history, notifications |
+| **Quest storage cleaner** | ✅ Ranks large files in user media folders; explicit selection and confirmation required |
 | **UI design system** | ✅ Light + dark themes, motion presets, shadows token, snapshot tests |
 | **Settings scene + persistent appearance** | ✅ Standard `Settings { … }`, `@AppStorage`-backed AppPreferences |
 | **Reveal in Finder for transfer destinations** | ✅ Right-click on device card → "Reveal Transfers in Finder" |
@@ -129,6 +132,9 @@ The team ID now lives in `Configs/Local.xcconfig` (gitignored) referenced via `c
 - `701ee9a` libusb signing fix (bundle as xcframework, use `@rpath`)
 - `30e330b` Gitignored `Configs/Local.xcconfig` for persistent team ID
 - `dcec186` Plan #12 covering full FSKit implementation
+- `90abcb2` Quest storage cleaner with safe, user-confirmed deletion
+- `3ffc8a9` Durable chunked resume for interrupted large ADB transfers
+- `5cdbbf3` Multi-Quest file sending
 
 See `git log --oneline` for the full history.
 

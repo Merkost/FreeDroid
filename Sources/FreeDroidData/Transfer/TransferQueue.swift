@@ -2,6 +2,14 @@ import Foundation
 import FreeDroidDomain
 
 public actor TransferQueue {
+    private struct ItemProgressSink: TransferProgressSink, Sendable {
+        let callback: @Sendable (Int64, Int64?) -> Void
+
+        func report(bytesTransferred: Int64, totalBytes: Int64?) {
+            callback(bytesTransferred, totalBytes)
+        }
+    }
+
     private struct ActiveJob {
         let job: TransferJob
         var task: Task<Void, Never>
@@ -10,6 +18,8 @@ public actor TransferQueue {
     private var active: [UUID: ActiveJob] = [:]
     private var stateSubscribers: [AsyncStream<[TransferState]>.Continuation] = []
     private var jobStates: [UUID: TransferState] = [:]
+    private var historyEntries: [TransferHistoryEntry] = TransferQueue.loadHistory()
+    private var itemProgress: [UUID: [RemotePath: Int64]] = [:]
     private let maxParallelPerDevice: Int
 
     public init(maxParallelPerDevice: Int = TransferQueue.defaultParallelism()) {
@@ -43,25 +53,67 @@ public actor TransferQueue {
         }
     }
 
+    public func history() -> [TransferHistoryEntry] { historyEntries }
+
+    public func clearHistory() {
+        historyEntries.removeAll()
+        saveHistory()
+    }
+
     private func start(
         job: TransferJob,
         engine: TransferEngine,
         continuation: AsyncThrowingStream<TransferProgress, Error>.Continuation
     ) async {
+        let startedAt = Date()
         publishRunning(job.id, completed: 0, total: 0, current: nil)
         do {
             let total = try await computeTotal(job: job, engine: engine)
             let copied = try await runParallel(job: job, engine: engine, total: total, continuation: continuation)
+            itemProgress[job.id] = nil
             publishRunning(job.id, completed: copied, total: total, current: nil)
             jobStates[job.id] = .completed
+            appendHistory(job: job, bytes: copied, startedAt: startedAt, result: .completed)
             publish()
             continuation.finish()
         } catch {
             jobStates[job.id] = mapFailure(error)
+            let result: TransferHistoryEntry.Result = error is CancellationError ? .cancelled : .failed
+            itemProgress[job.id] = nil
+            appendHistory(job: job, bytes: 0, startedAt: startedAt, result: result, message: String(describing: error))
             publish()
             continuation.finish(throwing: error)
         }
         active[job.id] = nil
+    }
+
+    private func appendHistory(job: TransferJob, bytes: Int64, startedAt: Date, result: TransferHistoryEntry.Result, message: String? = nil) {
+        historyEntries.insert(TransferHistoryEntry(
+            deviceID: job.deviceID,
+            direction: job.direction,
+            itemCount: job.items.count,
+            bytes: bytes,
+            startedAt: startedAt,
+            finishedAt: Date(),
+            result: result,
+            message: message
+        ), at: 0)
+        historyEntries = Array(historyEntries.prefix(100))
+        saveHistory()
+    }
+
+    private func saveHistory() {
+        let defaults = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
+        if let data = try? JSONEncoder().encode(historyEntries) {
+            defaults.set(data, forKey: "FreeDroid.TransferHistory.v1")
+        }
+    }
+
+    private static func loadHistory() -> [TransferHistoryEntry] {
+        let defaults = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
+        guard let data = defaults.data(forKey: "FreeDroid.TransferHistory.v1"),
+              let entries = try? JSONDecoder().decode([TransferHistoryEntry].self, from: data) else { return [] }
+        return entries
     }
 
     private func mapFailure(_ error: Error) -> TransferState {
@@ -114,6 +166,12 @@ public actor TransferQueue {
                     total += size
                 }
             }
+            if let free = try? await engine.transport.info.storageFreeBytes,
+               total > free {
+                throw TransportError.ioFailure(
+                    message: "Not enough Quest storage: (total - free) bytes missing"
+                )
+            }
             return total
         }
     }
@@ -138,7 +196,10 @@ public actor TransferQueue {
                 index += 1
                 inFlight += 1
                 group.addTask {
-                    let bytes = try await worker(item)
+                    let sink = ItemProgressSink { bytes, _ in
+                        Task { await self.report(jobID: job.id, item: item, bytes: bytes, total: total, continuation: continuation) }
+                    }
+                    let bytes = try await self.withRetry { try await worker(item, sink) }
                     return (item, bytes)
                 }
             }
@@ -161,16 +222,40 @@ public actor TransferQueue {
         return copied
     }
 
-    private func makeWorker(for job: TransferJob, engine: TransferEngine) -> @Sendable (RemotePath) async throws -> Int64 {
+    private func withRetry<T>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        var attempt = 0
+        while true {
+            do {
+                return try await operation()
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as TransportError where error.isRetryable && attempt < 3 {
+                let delay = Duration.milliseconds(500 * Int64(1 << attempt))
+                attempt += 1
+                try await Task.sleep(for: delay)
+            }
+        }
+    }
+
+    private func report(jobID: UUID, item: RemotePath, bytes: Int64, total: Int64, continuation: AsyncThrowingStream<TransferProgress, Error>.Continuation) {
+        var values = itemProgress[jobID] ?? [:]
+        values[item] = bytes
+        itemProgress[jobID] = values
+        let completed = values.values.reduce(0, +)
+        publishRunning(jobID, completed: completed, total: total, current: item)
+        continuation.yield(TransferProgress(jobID: jobID, completedBytes: completed, totalBytes: total, currentItem: item, bytesPerSecond: 0))
+    }
+
+    private func makeWorker(for job: TransferJob, engine: TransferEngine) -> @Sendable (RemotePath, TransferProgressSink?) async throws -> Int64 {
         let destination = job.destination
         switch job.direction {
         case .toMac:
-            return { item in
-                try await engine.pull(item, to: destination.appendingPathComponent(item.name))
+            return { item, progress in
+                try await engine.pull(item, to: destination.appendingPathComponent(item.name), progress: progress)
             }
         case .toDevice:
-            return { item in
-                try await engine.push(localURL: destination.appendingPathComponent(item.name), to: item)
+            return { item, progress in
+                try await engine.push(localURL: destination.appendingPathComponent(item.name), to: item, progress: progress)
             }
         }
     }

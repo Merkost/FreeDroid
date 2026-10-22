@@ -43,4 +43,12 @@ public struct TransferRepositoryImpl: TransferRepository {
             }
         }
     }
+
+    public func history() async -> [TransferHistoryEntry] {
+        await queue.history()
+    }
+
+    public func clearHistory() async {
+        await queue.clearHistory()
+    }
 }

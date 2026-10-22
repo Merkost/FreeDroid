@@ -24,6 +24,7 @@ public final class FileBrowserViewModel {
     private let deleteFilesUseCase: DeleteFilesUseCase
     private let createFolderUseCase: CreateFolderUseCase
     private let downloadToTempUseCase: DownloadToTempUseCase?
+    private let uploadFileUseCase: UploadFileUseCase?
     private var inspectorTask: Task<Void, Never>?
     private let inspectorAutoPreviewByteLimit: Int64 = 12 * 1024 * 1024
 
@@ -34,6 +35,7 @@ public final class FileBrowserViewModel {
         deleteFiles: DeleteFilesUseCase,
         createFolder: CreateFolderUseCase,
         downloadToTemp: DownloadToTempUseCase? = nil,
+        uploadFile: UploadFileUseCase? = nil,
         deviceID: DeviceID? = nil
     ) {
         self.path = initialPath
@@ -42,6 +44,7 @@ public final class FileBrowserViewModel {
         self.deleteFilesUseCase = deleteFiles
         self.createFolderUseCase = createFolder
         self.downloadToTempUseCase = downloadToTemp
+        self.uploadFileUseCase = uploadFile
         self.deviceID = deviceID
     }
 
@@ -226,6 +229,20 @@ public final class FileBrowserViewModel {
     public func createFolder(named name: String) async {
         do {
             _ = try await createFolderUseCase(at: path, name: name)
+            await reload()
+        } catch let error as TransportError {
+            lastError = error
+        } catch {
+            lastError = .ioFailure(message: String(describing: error))
+        }
+    }
+
+    public func upload(_ urls: [URL]) async {
+        guard let uploader = uploadFileUseCase else { return }
+        do {
+            for url in urls {
+                try await uploader(source: url, destinationFolder: path)
+            }
             await reload()
         } catch let error as TransportError {
             lastError = error

@@ -8,6 +8,7 @@ public enum ADBCommand: Hashable, Sendable {
     case getProp(serial: String, property: String)
     case pull(serial: String, remote: String, local: String, compressed: Bool = false)
     case push(serial: String, local: String, remote: String, compressed: Bool = false)
+    case install(serial: String, local: String)
     case pair(host: String, port: Int)
     case connect(host: String, port: Int)
     case disconnect(host: String, port: Int)
@@ -38,6 +39,8 @@ public enum ADBCommand: Hashable, Sendable {
             if compressed { args += ["-z", "zstd"] }
             args += [local, remote]
             return args
+        case let .install(serial, local):
+            return ["-s", serial, "install", "-r", "-d", "-g", local]
         case let .pair(host, port):
             return ["pair", "\(host):\(port)"]
         case let .connect(host, port):

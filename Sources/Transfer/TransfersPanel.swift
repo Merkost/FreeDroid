@@ -6,6 +6,7 @@ public struct TransfersPanel: View {
     @Environment(\.theme) private var theme
     @Bindable var viewModel: TransfersViewModel
     var deviceNameByID: (DeviceID) -> String?
+    @State private var showingHistory = false
 
     public init(viewModel: TransfersViewModel, deviceNameByID: @escaping (DeviceID) -> String?) {
         self.viewModel = viewModel
@@ -20,6 +21,12 @@ public struct TransfersPanel: View {
                 Text("\(viewModel.states.count) active")
                     .font(Typography.caption)
                     .foregroundStyle(theme.colors.text2)
+            }
+            HStack {
+                Spacer()
+                Button("History") { showingHistory = true }
+                    .buttonStyle(.borderless)
+                    .font(Typography.caption)
             }
             if viewModel.states.isEmpty {
                 Text("No active transfers")
@@ -56,7 +63,15 @@ public struct TransfersPanel: View {
                         .strokeBorder(theme.colors.line, lineWidth: 1)
                 )
         )
-        .task { await viewModel.observe() }
+        .task {
+            await viewModel.loadHistory()
+            await viewModel.observe()
+        }
+        .sheet(isPresented: $showingHistory) {
+            TransferHistoryView(viewModel: viewModel, deviceNameByID: deviceNameByID)
+                .frame(width: 560, height: 420)
+                .padding(Spacing.lg)
+        }
     }
 
     private func jobID(in state: TransferState) -> UUID? {
@@ -70,5 +85,41 @@ public struct TransfersPanel: View {
         guard let jobID = jobID(in: state),
               let deviceID = viewModel.jobToDevice[jobID] else { return nil }
         return deviceNameByID(deviceID)
+    }
+}
+
+private struct TransferHistoryView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var viewModel: TransfersViewModel
+    let deviceNameByID: (DeviceID) -> String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                Text("Transfer history").font(Typography.title)
+                Spacer()
+                Button("Clear") { Task { await viewModel.clearHistory() } }
+                Button("Close") { dismiss() }
+            }
+            if viewModel.history.isEmpty {
+                Text("No transfers yet").foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                List(viewModel.history) { entry in
+                    HStack {
+                        Image(systemName: entry.result == .completed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundStyle(entry.result == .completed ? .green : .red)
+                        VStack(alignment: .leading) {
+                            Text(deviceNameByID(entry.deviceID) ?? entry.deviceID.raw)
+                            Text("\(entry.itemCount) item(s) · \(ByteCountFormatter.string(fromByteCount: entry.bytes, countStyle: .file))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(entry.finishedAt, style: .date).font(.caption)
+                    }
+                }
+            }
+        }
     }
 }

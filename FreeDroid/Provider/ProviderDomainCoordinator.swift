@@ -8,6 +8,8 @@ private let providerLogger = Logger(subsystem: "com.merkost.freedroid", category
 
 @MainActor
 final class ProviderDomainCoordinator {
+    private static let domainSchemaVersion = "v4-symlink-folders"
+    private static let domainSchemaKey = "FreeDroid.FileProviderDomainSchema"
     private let registry: DeviceRegistry
     private var task: Task<Void, Never>?
     private var active: Set<DeviceID> = []
@@ -30,6 +32,17 @@ final class ProviderDomainCoordinator {
     private func adoptExistingDomains() async {
         do {
             let existing = try await Self.fetchDomains()
+            let defaults = UserDefaults(suiteName: "group.com.merkost.freedroid") ?? .standard
+            if defaults.string(forKey: Self.domainSchemaKey) != Self.domainSchemaVersion {
+                // This only removes File Provider's local metadata/cache. The
+                // Android files remain on the device and are never touched.
+                for domain in existing where ourIdentifierLooksLikeAndroid(domain.identifier.rawValue) {
+                    let deviceID = DeviceID(raw: domain.identifier.rawValue)
+                    await removeDomain(for: deviceID)
+                }
+                defaults.set(Self.domainSchemaVersion, forKey: Self.domainSchemaKey)
+                return
+            }
             for domain in existing where ourIdentifierLooksLikeAndroid(domain.identifier.rawValue) {
                 let deviceID = DeviceID(raw: domain.identifier.rawValue)
                 active.insert(deviceID)

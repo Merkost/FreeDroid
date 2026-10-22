@@ -8,6 +8,7 @@ public final class TransfersViewModel {
     public private(set) var states: [TransferState] = []
     public private(set) var jobToDevice: [UUID: DeviceID] = [:]
     public private(set) var deviceFractions: [DeviceID: Double] = [:]
+    public private(set) var history: [TransferHistoryEntry] = []
 
     private let repository: any TransferRepository
     private let cancelUseCase: CancelTransferUseCase
@@ -23,6 +24,15 @@ public final class TransfersViewModel {
             states = snapshot
             recomputeDeviceFractions()
         }
+    }
+
+    public func loadHistory() async {
+        history = await repository.history()
+    }
+
+    public func clearHistory() async {
+        await repository.clearHistory()
+        history = []
     }
 
     public func register(jobID: UUID, on deviceID: DeviceID) {

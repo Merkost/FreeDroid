@@ -5,6 +5,7 @@ public protocol FileRepository: Sendable {
     func stat(_ path: RemotePath) async throws -> RemoteEntry
     func read(_ path: RemotePath, offset: Int64, length: Int) async throws -> Data
     func write(_ path: RemotePath, data: Data, offset: Int64) async throws
+    func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64
     func mkdir(_ path: RemotePath) async throws
     func remove(_ path: RemotePath) async throws
     func rename(_ from: RemotePath, to destination: RemotePath) async throws

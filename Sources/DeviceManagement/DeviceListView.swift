@@ -58,7 +58,9 @@ public struct DeviceListView: View {
                                 onShowInFinder: { onShowInFinder(device) }
                             )
                             .id(device.id)
-                            .onTapGesture { viewModel.select(device.id) }
+                            .onTapGesture {
+                                viewModel.select(device.id, additive: NSEvent.modifierFlags.contains(.command))
+                            }
                         }
                     }
                 }

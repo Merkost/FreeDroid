@@ -2,21 +2,29 @@ import Foundation
 import Observation
 import FreeDroidDomain
 import FreeDroidUI
+import UserNotifications
 
 @MainActor
 @Observable
 public final class TransferToastPresenter {
     public private(set) var toasts: [Toast] = []
 
-    public init() {}
+    public init() {
+        Task {
+            _ = try? await UNUserNotificationCenter.current()
+                .requestAuthorization(options: [.alert, .sound])
+        }
+    }
 
     public func consume(_ states: [TransferState]) {
         for state in states {
             switch state {
             case .completed:
                 push(kind: .success, title: "Transfer complete")
+                notify(title: "FreeDroid", body: "Transfer complete")
             case .failed(let error):
                 push(kind: .danger, title: "Transfer failed", detail: shortMessage(error))
+                notify(title: "FreeDroid", body: "Transfer failed: \(shortMessage(error))")
             default:
                 continue
             }
@@ -31,6 +39,16 @@ public final class TransferToastPresenter {
             try? await Task.sleep(for: .seconds(3))
             self?.toasts.removeAll { $0.id == removeID }
         }
+    }
+
+    private func notify(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        )
     }
 
     private func shortMessage(_ error: TransportError) -> String {

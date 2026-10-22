@@ -378,4 +378,11 @@ extension DeviceRegistry {
     public func transport(for identifier: DeviceID) async -> (any Transport)? {
         records[identifier]?.transport
     }
+
+    public func installAPK(from source: URL, on identifier: DeviceID) async throws {
+        guard let session = records[identifier]?.transport as? ADBSession else {
+            throw TransportError.unsupported(reason: "APK installation requires an ADB connection")
+        }
+        try await session.installAPK(from: source)
+    }
 }

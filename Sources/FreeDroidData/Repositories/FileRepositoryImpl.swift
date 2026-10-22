@@ -42,6 +42,12 @@ public struct FileRepositoryImpl: FileRepository {
         await cache.invalidate(deviceID: deviceID, path: path.parent ?? .root)
     }
 
+    public func upload(from source: URL, to path: RemotePath, progress: TransferProgressSink?) async throws -> Int64 {
+        let bytes = try await transport().upload(from: source, to: path, progress: progress)
+        await cache.invalidate(deviceID: deviceID, path: path.parent ?? .root)
+        return bytes
+    }
+
     public func mkdir(_ path: RemotePath) async throws {
         try await transport().mkdir(path)
         await cache.invalidate(deviceID: deviceID, path: path.parent ?? .root)
